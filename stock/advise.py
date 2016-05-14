@@ -109,6 +109,7 @@ all_stocks = [
         'trades': [
             ['2016-2-26', 2, 100, 68.49, '2016-3-25', 79.26],
             ['2016-4-21', 1, 100, 67.50],
+            ['2016-5-13', 1, 100, 56.59],
         ],
         'comment': '<--',
     },
@@ -173,6 +174,7 @@ all_stocks = [
         'code': '000725', # 京东方A
         #'last_sell': 2.64,
         'KDJ': { '2015-12-25': [57.16, 59.79, 51.90]},
+        'margin': [2.3],
         'trades': [
             ['2015-12-28', 1, 500, 3.04],
             ['2016-1-15', 1, 1000, 2.63],
@@ -231,6 +233,13 @@ all_stocks = [
         'comment': '一堆概念',
     },
     {
+        'code': '002022', # 科华生物
+        'KDJ': { '2016-5-5': [66.2, 49.1, 100.3]},
+        'trades': [
+            ['2016-4-27', 1, 100, 19.73],
+        ],
+    },
+    {
         'code': '002106', # 莱宝高科
         'last_sell': 11.25,
         'last_sell_date': '2016-1-5',
@@ -241,7 +250,7 @@ all_stocks = [
         #    ['2015-4-2', 1, 100, 16.43],
         #    ['2015-11-23', 1, 100, 14.79],
         #    ['2015-12-7', 1, 200, 13.61],
-            ['2016-1-18', 1, 100, 8.83],
+            ['2016-1-18', 2, 100, 8.83, '2016-5-9', 10.41],
         ],
         'comment': '苹果三星<--',
     },
@@ -263,6 +272,7 @@ all_stocks = [
         #'last_buy': 20.76,
         #'position': 100,
         'KDJ': { '2015-12-10': [63.21, 68.86, 51.93]},
+        'margin': [15],
         'trades': [
             ['2015-12-17', 2, 100, 20.76, '2016-1-5', 16.91],
         ],
@@ -291,7 +301,7 @@ all_stocks = [
             ['2016-1-11', 1, 100, 23.35],
             ['2016-3-11', 2, 100, 19.04, '2016-3-25', 22.96],
             ['2016-3-11', 2, 100, 19.04, '2016-3-21', 23.36],
-            ['2016-4-22', 1, 100, 20.91],
+            ['2016-4-22', 2, 100, 20.91, '2016-5-13', 22.62],
         ],
         'comment': '电器，新材料',
     },
@@ -305,6 +315,7 @@ all_stocks = [
             ['2015-5-26', 1, 100, 45.39],
         #    ['2015-6-10', 1, 100, 40.49],
             ['2016-3-8', 2, 100, 30.26, '2016-3-21', 32.69],
+            ['2016-4-26', 1, 100, 32.30],
         ],
         'comment': '一堆概念',
     },
@@ -326,6 +337,7 @@ all_stocks = [
         #'last_buy': 10.50,
         #'position': 100,
         'KDJ': { '2015-12-10': [82.56, 76.34, 95.01]},
+        'margin': [9],
         'trades': [
             ['2015-11-2', 2, 100, 10.5, '2016-4-12', 13.23],
             ['2016-2-25', 2, 100, 11.56, '2016-4-8', 13.25],
@@ -340,6 +352,7 @@ all_stocks = [
         #'last_buy': 13.90,
         #'position': 200,
         'KDJ': { '2015-12-10': [37.43, 35.53, 41.24]},
+        'margin': [9, 14],
         'trades': [
             ['2015-11-23', 1, 100, 16.1],
             #['2015-12-1', 1, 100, 13.9],
@@ -353,6 +366,7 @@ all_stocks = [
         #'last_buy': 63.17,
         #'position': 100,
         'KDJ': { '2015-12-10': [58.51, 48.29, 78.95]},
+        'margin': [52, 66],
         'trades': [
             ['2015-12-9', 1, 100, 63.17],
             ['2016-1-26', 2, 100, 52.28, '2016-3-18', 56.44],
@@ -380,6 +394,7 @@ all_stocks = [
         'KDJ': { '2016-3-15': [51.5, 43.3, 67.8]},
         'trades': [
             ['2016-3-15', 2, 100, 24.45, '2016-3-21', 27.04],
+            ['2016-5-8', 1, 100, 13.43],
         ],
         'comment': '深港通',
     },
@@ -399,6 +414,7 @@ all_stocks = [
     {
         'code': '300185', # 通裕重工
         'KDJ': { '2015-12-25': [67.55, 66.49, 69.68]},
+        'margin': [6.5],
         'trades': [
             ['2016-2-26', 2, 300, 6.44, '2016-3-21', 6.98],
         ],
@@ -410,6 +426,7 @@ all_stocks = [
         'last_buy': 0.00,
         'position': 0,
         'KDJ': { '2015-12-10': [86.67, 87.67, 84.68]},
+        'margin': [50],
     },
     {
         'code': '510150', # 消费ETF
@@ -435,6 +452,7 @@ all_stocks = [
         #'last_buy': 11.56,
         #'position': 200,
         'KDJ': { '2015-12-10': [16.35, 25.89, -2.73]},
+        'margin': [7.5],
         'trades': [
             ['2015-8-18', 1, 100, 12.91],
             ['2015-8-18', 1, 100, 11.56],
@@ -446,6 +464,7 @@ all_stocks = [
         'code': '600027', # 华电国际
         #'last_sell': 5.17,
         'KDJ': { '2015-1-24': [11.7, 11.9, 11.4]},
+        'margin': [5, 5.6],
         'trades': [
             ['2016-1-25', 1, 1000, 5.51],
             ['2016-1-27', 2, 1000, 4.88, '2016-2-19', 5.17],
@@ -462,13 +481,13 @@ all_stocks = [
             ['2015-8-21', 1, 100, 9.77],
             #['2015-12-1', 1, 100, 7.89],
             ['2016-1-26', 1, 200, 7.35],
-            ['2016-4-13', 1, 300, 6.38],
+            ['2016-4-13', 2, 300, 6.38, '2016-5-8', 7.28],
         ],
         'comment': '',
     },
     {
         'code': '600522', # 中天科技
-        'last_sell': 24.46,
+        #'last_sell': 24.46,
         #'last_buy': 21.97,
         #'last_buy_date': '2015-12-9',
         #'position': 200,
@@ -476,7 +495,7 @@ all_stocks = [
         'trades': [
             ['2015-8-12', 1, 100, 26.1],
             #['2015-12-9', 1, 100, 21.97],
-            ['2016-1-12', 1, 100, 18.14],
+            ['2016-1-12', 2, 100, 18.14, '2016-4-28', 20.90],
         ],
         'comment': '军工锂电石墨烯',
     },
@@ -494,6 +513,7 @@ all_stocks = [
         #'last_buy': 3.30,
         #'position': 7000,
         'KDJ': { '2015-12-10': [48.01, 51.12, 41.78]},
+        'margin': [3, 3.6],
         'trades': [
             ['2015-4-20', 1, 1000, 4.045],
             ['2015-4-28', 1, 1000, 4.04],
@@ -525,6 +545,7 @@ all_stocks = [
         #'last_buy': 9.02,
         #'position': 100,
         'KDJ': { '2015-12-10': [16.48, 25.66, -1.89]},
+        'margin': [7.3],
         'trades': [
             ['2015-11-26', 1, 100, 9.02],
             ['2016-2-15', 2, 700, 7.17, '2016-3-4', 7.76],
@@ -536,8 +557,17 @@ all_stocks = [
         #'last_buy': 9.41,
         #'position': 0,
         'KDJ': { '2016-4-20': [46.8, 50.8, 38.6]},
+        'margin': [5.7],
         'trades': [
             ['2016-4-21', 1, 300, 6.04],
+            ['2016-4-28', 1, 300, 5.71],
+        ],
+    },
+    {
+        'code': '601933', # 永辉超市
+        'KDJ': { '2016-5-5': [65.2, 51.9, 91.9]},
+        'trades': [
+            ['2016-4-29', 1, 300, 8.41],
         ],
     },
     {
@@ -693,6 +723,9 @@ def get_hold_duration(stock):
     return (last, far)
 
 def compCurrentJ(stockX, stockY):
+    if not stockX.has_key('more_info_currentJ') or not stockY.has_key('more_info_currentJ'):
+        return 0
+
     if stockX['more_info_currentJ'] < stockY['more_info_currentJ']:
         return 1
     elif stockX['more_info_currentJ'] > stockY['more_info_currentJ']:
@@ -830,6 +863,16 @@ def advise(stock):
     last_buy = stock['last_buy']
     previous_close = float(dh['close'])
     previous_open = float(dh['open'])
+
+    if stock.has_key('margin'):
+        if stock['margin'][0] < current_price \
+            or len(stock["margin"]) == 1 and current_price < stock["last_buy"] * 1.03 \
+            or len(stock['margin']) > 1 and stock['margin'][1] > current_price:
+            stock['action'] = "HIDE"
+            return
+    elif current_price > stock["last_buy"] * 0.97 and current_price < stock["last_buy"] * 1.03:
+        stock['action'] = "HIDE"
+        return
     
     (k, d, j) = get_today_KDJ933(stock, current_price, float(df['high'][0]), float(df['low'][0]))
     if today_open == 0:
@@ -1026,7 +1069,11 @@ def display_stock_group(stocks, action, line):
         
     return line
 
-def display_stock(stock, line):  
+g_dark_enabled = 0
+
+def display_stock(stock, line):
+    global g_dark_enabled
+
     separator = 1
     index_width = 3
     code_width = 6
@@ -1046,66 +1093,70 @@ def display_stock(stock, line):
     indexProfit_width = 10
     indexCost_width = 10
 
+    dark_enabled = (g_dark_enabled % 3 == 1 and stock['position'] > 0) or \
+        (g_dark_enabled % 3 == 2 and stock['position'] == 0)
+    colorpair = 6 if dark_enabled else 1
+
     # code
     location = 1 + index_width
-    display_info(stock['code'], location, line, 1)
+    display_info(stock['code'], location, line, colorpair)
     
     # name
     location += code_width + separator
-    display_info(stock['name'], location, line, 1)
+    display_info(stock['name'], location, line, colorpair)
 
     # action
     location += name_width + separator
-    display_info(stock['action'], location, line, stock['action_color'])
+    display_info(stock['action'], location, line, colorpair if dark_enabled else stock['action_color'])
 
     # more_info
     location += action_width + separator
-    display_info('(昨:%6.2f' % (stock['more_info_previousChange']), location, line)
+    display_info('(昨:%6.2f' % (stock['more_info_previousChange']), location, line, colorpair)
     location += previousChange_width + separator
-    display_info('今:%6.2f' % (stock['more_info_todayChange']), location, line)
+    display_info('今:%6.2f' % (stock['more_info_todayChange']), location, line, colorpair)
     location += todayChange_width + separator
-    display_info('现价:%6.2f' % (stock['more_info_currentPrice']), location, line)
+    display_info('现价:%6.2f' % (stock['more_info_currentPrice']), location, line, colorpair)
     location += currentPrice_width + separator
-    display_info('上次买:%6.2f' % (stock['more_info_lastBuy']), location, line)
+    display_info('上次买:%6.2f' % (stock['more_info_lastBuy']), location, line, colorpair)
     location += lastBuy_width + separator
-    display_info('卖:%6.2f' % (stock['more_info_lastSell']), location, line)
+    display_info('卖:%6.2f' % (stock['more_info_lastSell']), location, line, colorpair)
     location += lastSell_width + separator
-    display_info('仓:%4d' % (stock['more_info_position']), location, line)
+    display_info('仓:%4d' % (stock['more_info_position']), location, line, colorpair)
     location += position_width + separator
     currentProfit_color = 1
     if stock['more_info_profit_percent'] >= 6:
         currentProfit_color = 3
-    display_info('盈:%s' % (stock['more_info_profit_percentstr']), location, line, currentProfit_color)
+    display_info('盈:%s' % (stock['more_info_profit_percentstr']), location, line, colorpair if dark_enabled else currentProfit_color)
     location += profit_width + separator
     regress_rate_color = 1
     if stock['more_info_regress_rate'] >= 20:
         regress_rate_color = 3
-    display_info('回:%s' % (stock['more_info_regress_ratestr']), location, line, regress_rate_color)
+    display_info('回:%s' % (stock['more_info_regress_ratestr']), location, line, colorpair if dark_enabled else regress_rate_color)
     location += regression_width + separator
     currentJ_color = 1
     if stock['more_info_currentJ'] <= 20:
         currentJ_color = 2
     elif stock['more_info_currentJ'] >= 80:
         currentJ_color = 3
-    display_info('J:%6.2f' % (stock['more_info_currentJ']), location, line, currentJ_color)
+    display_info('J:%6.2f' % (stock['more_info_currentJ']), location, line, colorpair if dark_enabled else currentJ_color)
     location += j_width + separator
-    display_info('期:%s' % (stock['more_info_durationstr']), location, line)
+    display_info('期:%s' % (stock['more_info_durationstr']), location, line, colorpair)
     location += duration_width + separator
-    display_info('栈:%s' % (stock['more_info_stackstr']), location, line)
+    display_info('栈:%s' % (stock['more_info_stackstr']), location, line, colorpair)
     location += stack_width + separator
     index_profit_color = 1
     if stock['more_info_index_profit_percent'] * 100 >= 5:
         index_profit_color = 3
-    display_info('点:%s' % (stock['more_info_index_profit_percentstr']), location, line, index_profit_color)
+    display_info('点:%s' % (stock['more_info_index_profit_percentstr']), location, line, colorpair if dark_enabled else index_profit_color)
     location += indexProfit_width + separator
     index_cost_color = 1
     if stock['more_info_index_cost_percent'] * 100 <= -5 \
         and stock['more_info_index_profit_percent'] * 100 <= 0 \
         and stock['more_info_currentJ'] <= 20:
         index_cost_color = 2
-    display_info('进:%s' % (stock['more_info_index_cost_percentstr']), location, line, index_cost_color)
+    display_info('进:%s' % (stock['more_info_index_cost_percentstr']), location, line, colorpair if dark_enabled else index_cost_color)
     location += indexCost_width + separator
-    display_info(')', location, line)
+    display_info(')', location, line, colorpair)
 
     # comment
     location += 1 + separator
@@ -1113,7 +1164,7 @@ def display_stock(stock, line):
     if stock.has_key('comment'):
         comment = stock['comment']
         comment += ' ' * (20 - len(comment))
-    display_info(comment, location, line)
+    display_info(comment, location, line, colorpair)
 
 def display_highlight_info(index, highlight):
     separator = 1
@@ -1339,7 +1390,7 @@ def log_status(message):
 def display_info(str, x, y, colorpair=1):  
     '''''使用指定的colorpair显示文字'''  
     try:  
-        global stdscr  
+        global stdscr
         stdscr.addstr(y, x, str, curses.color_pair(colorpair))  
         stdscr.refresh()  
     except Exception,e:  
@@ -1367,6 +1418,7 @@ def set_win():
     curses.init_pair(3, curses.COLOR_GREEN, curses.COLOR_BLACK)  
     curses.init_pair(4, curses.COLOR_MAGENTA, curses.COLOR_BLACK)  
     curses.init_pair(5, curses.COLOR_CYAN, curses.COLOR_BLACK)  
+    curses.init_pair(6, curses.COLOR_BLACK, curses.COLOR_BLACK)  
     #关闭屏幕回显  
     curses.noecho()  
     #输入时不需要回车确认  
@@ -1441,6 +1493,10 @@ if __name__=='__main__':
                     seconds += 1
                     time.sleep(1)
                     ichar = stdscr.getch()
+                    if ichar == ord('d'):
+                        g_dark_enabled += 1
+                        advice_all()
+                        seconds = 0
                     if ichar == 27 and stdscr.getch() == ord('['):
                         ichar = stdscr.getch()
                         if ichar == ord('A'):
