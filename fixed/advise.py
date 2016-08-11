@@ -85,15 +85,20 @@ def advise(item):
         if theSellType == 1:
             profit_bar = 10 + duration
         elif theSellType == 2:
-            profit_bar = 20 + duration * 2
+            profit_bar = 20 + duration * 1.5
         else:
-            profit_bar = 50 + duration * 3
+            profit_bar = 50 + duration * 2
         c_profit = c_default_white
         if profit_ratio * 100 >= profit_bar:
             advice = ' 卖出'
             c_profit = c_highlight_green
         profit_str = '%s%6.2f%%%s' % (c_profit, profit_ratio * 100, c_reset)
-        trade_str = (' ' * 7) + ('%s %9.3f    %s    %s') % (number, buy, profit_str, advice)
+        if g_arg_expected:
+            profit_str = '%s(%2.0f%%)' % (profit_str, profit_bar)
+        regress_str = '    '
+        if item.has_key('recent_high'):
+            regress_str = '%3.1f%%' % ((item['recent_high'] - current) * 100 / (item['recent_high'] - buy))
+        trade_str = (' ' * 7) + ('%s %9.3f    %s    %s   %s') % (number, buy, profit_str, regress_str, advice)
         if not g_arg_simplified or advice != '':
             print trade_str
     if item.has_key('invertedTrades'):
@@ -127,17 +132,26 @@ def advise(item):
                 advice = ' 卖出'
                 c_profit = c_highlight_green
             profit_str = '%s%6.2f%%%s' % (c_profit, profit_ratio * 100, c_reset)
+            if g_arg_expected:
+                profit_str = '%s(%2.0f%%)' % (profit_str, profit_bar)
             trade_str = (' ' * 7) + ('%s %9.3f    %s    %s') % (number, buy, profit_str, advice)
             if not g_arg_simplified or advice != '':
                 print trade_str
 
+g_arg_expected = False
 g_arg_simplified = False
 
 def parse_args():
+    global g_arg_expected
     global g_arg_simplified
-    if len(sys.argv) >= 2 and sys.argv[1] == '-s':
-        g_arg_simplified = True
-
+    if len(sys.argv) >= 2:
+        index = 1
+        while index < len(sys.argv):
+            if sys.argv[index] == '-e':
+                g_arg_expected = True
+            if sys.argv[index] == '-s':
+                g_arg_simplified = True
+            index += 1
 
 if __name__=='__main__':
     parse_args()

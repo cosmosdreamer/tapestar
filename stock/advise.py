@@ -137,6 +137,7 @@ def preprocess_stock(stock):
                 investments['indexed_cost'][costIndex] += amount * price
                 if sh_index['price'] > 0:
                     costIndex = (int(sh_index['price']) / 100) - (int(shIndex) / 100) + 3
+                    #display_info("" + costIndex + " " + amount * price, 1, 20)
                     if costIndex >= 0 and costIndex <= 7:
                         investments['fine_indexed_cost'][costIndex] += amount * price
     if not stock.has_key('last_buy_date') and last_buy_date != date.min:
@@ -973,7 +974,7 @@ def parse_args():
         g_arg_simplified = True
 
 DEBUG = False
-  
+
 if __name__=='__main__':  
     #global stdscr
     parse_args()
@@ -996,6 +997,7 @@ if __name__=='__main__':
                 if count == 0 or is_trade_time():
                     advice_all()
                     if count == 0:
+                        preprocess_all()
                         advice_all()
 
                 count += 1

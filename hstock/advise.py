@@ -2,17 +2,18 @@
 import curses  
 from dateutil import rrule
 from datetime import date, datetime, timedelta
+import hshare as hs
+import hstockdata # own
 import httplib
 import json
 import locale
 from lxml import etree
 import lxml.html.soupparser as soupparser
 import math
-import hstockdata # own
+import pymongo
 import strutil # own
 import sys  
 import time
-import hshare as hs
 
 reload(sys)  
 sys.setdefaultencoding('utf8')  
@@ -21,6 +22,10 @@ locale.setlocale(locale.LC_ALL, '')
 system_code = locale.getpreferredencoding()
 
 stdscr = None
+
+client = pymongo.MongoClient()
+db = client.hstock
+c_dayK = db.dayK
 
 positioned_stock_count = 0
 
@@ -139,7 +144,16 @@ def advise(stock):
     log_status('Getting realtime quotes for %s' % (stock['code']))
     df = hs.get_realtime_quotes(stock['code'])
     log_status('Done realtime quotes for %s' % (stock['code']))
-    
+
+    code = stock['code']
+    datestr = datetime.now().strftime('%Y-%m-%d')
+    dh = c_dayK.aggregate([{"$match": {"code": {"$eq": code}}}, {"$match": {"date": {"$eq": datestr}}}])
+    dh = list(dh)
+    if len(dh) == 0:
+        c_dayK.insert({"code": stock["code"], "date": datestr, "close": df['close'], "open": df['open'], "high": df['high'], "low": df['low']})
+    else:
+        c_dayK.update({"code": stock["code"], "date": datestr}, {"$set": {"high": df['high']}})
+
     # name
     stock['name'] = df['name'].decode("GB2312")
     namelen = strutil.width(stock['name'])
@@ -154,7 +168,6 @@ def advise(stock):
     action = ''
     action_color = 1
     
-    code = stock['code']
     current_price = df['price']
     today_high = df['high']
     today_open = df['open']
@@ -163,10 +176,18 @@ def advise(stock):
     last_buy = stock['last_buy']
     previous_close = df['previous_close']
 
-    #if current_price > last_buy * 0.90 and current_price < last_buy * 1.04:
-    #    stock['action'] = "HIDE"
-    #    return
-    
+    if stock.has_key('margin'):
+        if len(stock['margin']) > 1 and stock['margin'][0] < current_price and stock['margin'][1] > current_price \
+            or len(stock["margin"]) == 1 and stock['margin'][0] < current_price and (position == 0 or current_price < stock["last_buy"] * 1.04):
+            stock['action'] = "HIDE"
+            return
+    elif current_price > stock["last_buy"] * 0.90 and current_price < stock["last_buy"] * 1.04:
+        stock['action'] = "HIDE"
+        return
+    elif position == 0 and stock["last_sell"] > 0 and current_price * 1.06 > stock["last_sell"]:
+        stock['action'] = "HIDE"
+        return
+
     if today_open == 0:
         action = "    "
     elif current_price - today_open > 0:
@@ -217,6 +238,14 @@ def advise(stock):
         profit_percentstr = '    '
     else:
         profit_percentstr = '%3d%%' % profit_percent
+     
+    regress_rate = 0
+    if profit_percent <= 0:
+        regress_ratestr = '   '
+    else:
+        recent_high = get_recent_high(stock, float(today_high))
+        regress_rate = math.ceil((recent_high - current_price) / (recent_high - last_buy) * 100)
+        regress_ratestr = '%2d%%' % regress_rate
     
     (last, far) = get_hold_duration(stock)
     durationstr = '     '
@@ -237,6 +266,8 @@ def advise(stock):
     stock['more_info_position'] = position
     stock['more_info_profit_percent'] = profit_percent
     stock['more_info_profit_percentstr'] = profit_percentstr
+    stock['more_info_regress_rate'] = regress_rate
+    stock['more_info_regress_ratestr'] = regress_ratestr
     stock['more_info_duration_last'] = last
     stock['more_info_duration_far'] = far
     stock['more_info_durationstr'] = durationstr
@@ -261,6 +292,40 @@ def whether_strong_sell(current_price, last_sell, last_buy, today_high):
     recent_high = today_high
     strong_sell = recent_high > last_buy * 1.2 and (recent_high - current_price) > (recent_high - last_buy) * 0.2
     return strong_sell
+
+def get_recent_high(stock, today_high):
+    recent_high = 0
+
+    if stock.has_key('last_buy_date'):
+        recent_high = get_recent_high_from_date(stock['code'], stock['last_buy_date'])
+        if recent_high == 0:
+            recent_high = today_high
+
+    if recent_high < today_high:
+        recent_high = today_high
+
+    return recent_high
+
+def get_recent_high_from_date(code, datestr):
+    theDate = datetime.strptime(datestr, '%Y-%m-%d').date()
+    recent_high = 0
+    while theDate < date.today():
+        dh = previous_data_with_date(code, datestr)
+        if dh is not None and dh['high'] > recent_high:
+            recent_high = dh['high']
+        theDate = theDate + timedelta(days=1)
+        datestr = theDate.strftime('%Y-%m-%d')
+    return recent_high
+
+def previous_data_with_date(code, datestr):
+    originDateStr = datestr
+    dh = c_dayK.aggregate([{"$match": {"code": {"$eq": code}}}, {"$match": {"date": {"$eq": datestr}}}])
+    dh = list(dh)
+    
+    if len(dh) == 0:
+        return None
+
+    return dh[0]
 
 def display_stock_group(stocks, action, line):
     global stock_index
@@ -291,7 +356,7 @@ def display_stock(stock, line):
     lastSell_width = 9
     position_width = 7
     profit_width = 7
-    #regression_width = 6
+    regression_width = 6
     #j_width = 8
     duration_width = 8
     stack_width = 8
@@ -336,6 +401,11 @@ def display_stock(stock, line):
         currentProfit_color = 3
     display_info('盈:%s' % (stock['more_info_profit_percentstr']), location, line, currentProfit_color)
     location += profit_width + separator
+    regress_rate_color = 1
+    if stock['more_info_regress_rate'] >= 28:
+        regress_rate_color = 3
+    display_info('回:%s' % (stock['more_info_regress_ratestr']), location, line, regress_rate_color)
+    location += regression_width + separator
     display_info('期:%s' % (stock['more_info_durationstr']), location, line, colorpair)
     location += duration_width + separator
     display_info('栈:%s' % (stock['more_info_stackstr']), location, line, colorpair)
