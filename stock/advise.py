@@ -95,6 +95,7 @@ def preprocess_stock(stock):
     last_sell = 0.0
     last_sell_date = date.min
     position = 0
+    last_buy_position = 0
     turnover = 0
     if stock.has_key('trades'):
         for trade in stock['trades']:
@@ -116,6 +117,7 @@ def preprocess_stock(stock):
             if direction == 1 and theDate >= last_buy_date:
                 last_buy_date = theDate
                 last_buy = price
+                last_buy_position = amount
             if direction == 1 and theDate < far_buy_date:
                 far_buy_date = theDate
             if direction == 1:
@@ -146,6 +148,8 @@ def preprocess_stock(stock):
         stock['far_buy_date'] = far_buy_date.strftime('%Y-%m-%d')
     if not stock.has_key('last_buy'):
         stock['last_buy'] = last_buy
+    if not stock.has_key('last_buy_position'):
+        stock['last_buy_position'] = last_buy_position
     if not stock.has_key('last_sell_date') and last_sell_date != date.min:
         stock['last_sell_date'] = last_sell_date.strftime('%Y-%m-%d')
     if not stock.has_key('last_sell'):
@@ -324,15 +328,22 @@ def advise(stock):
     previous_close = float(dh['close'])
     previous_open = float(dh['open'])
 
+    last_profit = stock['last_buy_position'] * (current_price - last_buy)
     if not g_show_all and stock.has_key('margin'):
         if len(stock['margin']) > 1 and stock['margin'][0] < current_price and stock['margin'][1] > current_price \
-            or len(stock["margin"]) == 1 and stock['margin'][0] < current_price and (position == 0 or current_price < stock["last_buy"] * 1.04):
+            or len(stock["margin"]) == 1 and stock['margin'][0] < current_price and (position == 0 or current_price < stock["last_buy"] * 1.05):
             stock['action'] = "HIDE"
             return
-    elif not g_show_all and current_price > stock["last_buy"] * 0.90 and current_price < stock["last_buy"] * 1.04:
+        elif last_profit > 0 and last_profit < 110.0:
+            stock['action'] = "HIDE"
+            return
+    elif not g_show_all and current_price > stock["last_buy"] * 0.90 and current_price < stock["last_buy"] * 1.05:
         stock['action'] = "HIDE"
         return
     elif not g_show_all and position == 0 and stock["last_sell"] > 0 and current_price * 1.06 > stock["last_sell"]:
+        stock['action'] = "HIDE"
+        return
+    elif not g_show_all and last_profit > 0 and last_profit < 110.0:
         stock['action'] = "HIDE"
         return
     

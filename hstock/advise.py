@@ -15,6 +15,12 @@ import strutil # own
 import sys  
 import time
 
+sys.path.insert(0, '../stock/')
+sys.path.insert(0, 'tapestar/stock/')
+# print sys.path
+
+import shshare as ss # own
+
 reload(sys)  
 sys.setdefaultencoding('utf8')  
 
@@ -132,6 +138,9 @@ def advice_all():
     line = display_empty_line(line)
     line = display_stock_group(hstockdata.all_stocks, "观望", line)
     line = display_stock_group(hstockdata.all_stocks, " -- ", line)
+    if g_show_all:
+        line = display_stock_group(hstockdata.all_stocks, "HIDE", line)
+        line = display_stock_group(hstockdata.all_stocks, "    ", line)
 
     line = display_empty_line(line)
     line = display_empty_line(line)
@@ -142,7 +151,10 @@ def advice_all():
 
 def advise(stock):
     log_status('Getting realtime quotes for %s' % (stock['code']))
-    df = hs.get_realtime_quotes(stock['code'])
+    if stock['code'].startswith('sh'):
+        df = ss.get_realtime_quotes(stock['code'])
+    else:
+        df = hs.get_realtime_quotes(stock['code'])
     log_status('Done realtime quotes for %s' % (stock['code']))
 
     code = stock['code']
@@ -176,15 +188,15 @@ def advise(stock):
     last_buy = stock['last_buy']
     previous_close = df['previous_close']
 
-    if stock.has_key('margin'):
+    if not g_show_all and stock.has_key('margin'):
         if len(stock['margin']) > 1 and stock['margin'][0] < current_price and stock['margin'][1] > current_price \
             or len(stock["margin"]) == 1 and stock['margin'][0] < current_price and (position == 0 or current_price < stock["last_buy"] * 1.04):
             stock['action'] = "HIDE"
             return
-    elif current_price > stock["last_buy"] * 0.90 and current_price < stock["last_buy"] * 1.04:
+    elif not g_show_all and current_price > stock["last_buy"] * 0.90 and current_price < stock["last_buy"] * 1.04:
         stock['action'] = "HIDE"
         return
-    elif position == 0 and stock["last_sell"] > 0 and current_price * 1.06 > stock["last_sell"]:
+    elif not g_show_all and position == 0 and stock["last_sell"] > 0 and current_price * 1.06 > stock["last_sell"]:
         stock['action'] = "HIDE"
         return
 
@@ -420,6 +432,9 @@ def display_stock(stock, line):
     comment_color = colorpair
     if stock.has_key('comment'):
         comment = stock['comment']
+    if stock.has_key('margin'):
+        comment = '[' + str(stock['margin'][0]) + ']' + comment
+        comment_color = 2
     comment += ' ' * (30 - len(comment))
     display_info(comment, location, line, comment_color)
 
@@ -501,6 +516,8 @@ def getch(stdscr):
             ichar = curses.KEY_LEFT
     return ichar
 
+g_show_all = False
+
 if __name__=='__main__':  
     if True:
         stdscr = curses.initscr()
@@ -513,7 +530,19 @@ if __name__=='__main__':
                     advice_all()
 
                 count += 1
-                time.sleep(60)
+                seconds = 0
+                while seconds < 30:
+                    seconds += 1
+                    time.sleep(1)
+                    ichar = getch(stdscr)
+                    if ichar == ord('d'):
+                        g_dark_enabled += 1
+                        advice_all()
+                        seconds = 0
+                    if ichar == ord('a'):
+                        g_show_all = not g_show_all
+                        advice_all()
+                        seconds = 0
         finally:  
             unset_win()
             pass
