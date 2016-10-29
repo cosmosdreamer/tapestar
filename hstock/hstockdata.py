@@ -41,7 +41,7 @@ all_stocks = [
         'comment': '银行',
     },
     {
-        'code': 'sh201008', # R001
+        'code': 'sz131810', # R-001
         'margin': [0, 3.5],
         'trades': [
         ],

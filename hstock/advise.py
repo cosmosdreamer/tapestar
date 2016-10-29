@@ -151,7 +151,7 @@ def advice_all():
 
 def advise(stock):
     log_status('Getting realtime quotes for %s' % (stock['code']))
-    if stock['code'].startswith('sh'):
+    if stock['code'].startswith('sh') or stock['code'].startswith('sz'):
         df = ss.get_realtime_quotes(stock['code'])
     else:
         df = hs.get_realtime_quotes(stock['code'])

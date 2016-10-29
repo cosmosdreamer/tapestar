@@ -346,8 +346,10 @@ def advise(stock):
     elif not g_show_all and last_profit > 0 and last_profit < 110.0:
         stock['action'] = "HIDE"
         return
-    
-    (k, d, j) = get_today_KDJ933(stock, current_price, float(df['high'][0]), float(df['low'][0]))
+
+    j = 0
+    if stock.has_key('KDJ'):
+        (k, d, j) = get_today_KDJ933(stock, current_price, float(df['high'][0]), float(df['low'][0]))
     if today_open == 0:
         action = "    "
     elif float(df['price'][0]) - float(df['open'][0]) > 0:
@@ -483,6 +485,7 @@ def advise(stock):
     stock['more_info_index_profit_percentstr'] = index_profit_percentstr
     stock['more_info_index_cost_percent'] = index_cost_percent
     stock['more_info_index_cost_percentstr'] = index_cost_percentstr
+    stock['more_info_today_change'] = position * (current_price - previous_close)
 
 def whether_strong_buy(current_price, last_sell, last_buy):
     strong_buy = (last_buy == 0.0 and last_sell == 0.0) # 空仓且从未持有
@@ -567,6 +570,7 @@ def display_stock(stock, line):
     indexProfit_width = 10
     indexCost_width = 10
     turnover_width = 6
+    todayChange_width = 10
 
     dark_enabled = (g_dark_enabled % 3 == 1 and stock['position'] > 0) or \
         (g_dark_enabled % 3 == 2 and stock['position'] == 0)
@@ -642,8 +646,10 @@ def display_stock(stock, line):
             index_cost_color = 2
         display_info('进:%s' % (stock['more_info_index_cost_percentstr']), location, line, colorpair if dark_enabled else index_cost_color)
         location += indexCost_width + separator
-        display_info('转:%3d' % stock['turnover'], location, line, colorpair if dark_enabled else index_cost_color)
+        display_info('转:%3d' % stock['turnover'], location, line, colorpair)
         location += turnover_width + separator
+        display_info('详:%7d' % stock['more_info_today_change'], location, line, colorpair)
+        location += todayChange_width + separator
         display_info(')', location, line, colorpair)
 
         # comment
@@ -848,7 +854,9 @@ def is_tradedate(date):
     if date.weekday() == 5 or date.weekday() == 6:
         return False # Saturday or Sunday
     datestr = date.strftime('%Y-%m-%d')
+    #print datestr
     if datestr in legalholidays.legal_holidays:
+        #print 'False'
         return False
     if date.year < 2015 or date.year > 2016:
         raise Exception('year not supported!')
@@ -952,12 +960,14 @@ def print_KDJs(code):
         if stock['code'] == code:
             print_KDJ(stock, theDate - timedelta(days=1))
 
-def is_trade_time():
-    theTime = datetime.now()
-    return (theTime.hour == 9 and theTime.minute >= 15) or \
-        (theTime.hour == 10) or (theTime.hour == 11 and theTime.minute <= 33) or \
+const_tradeTimeOffset = 3
+
+def is_trade_time(theTime):
+    return (theTime.hour == 9 and theTime.minute >= 30 - const_tradeTimeOffset) or \
+        (theTime.hour == 10) or (theTime.hour == 11 and theTime.minute <= 30 + const_tradeTimeOffset) or \
+        (theTime.hour == 12 and theTime.minute >= 60 - const_tradeTimeOffset) or \
         (theTime.hour >= 13 and theTime.hour < 15) or \
-        (theTime.hour == 15 and theTime.minute <= 3)
+        (theTime.hour == 15 and theTime.minute <= const_tradeTimeOffset)
 
 def getch(stdscr):
     ichar = stdscr.getch()
@@ -976,6 +986,7 @@ def getch(stdscr):
 g_highlight_stock_index = 0
 g_highlight_line = 5
 g_show_all = False
+g_hide_all = False
 
 g_arg_simplified = False
 
@@ -1005,11 +1016,15 @@ if __name__=='__main__':
             set_win()  
             preprocess_all()
             while True:
-                if count == 0 or is_trade_time():
-                    advice_all()
-                    if count == 0:
-                        preprocess_all()
+                if count == 0 or is_trade_time(datetime.now()):
+                    if g_hide_all:
+                        for i in range(70):
+                            display_info(' ' * 200, 0, i)
+                    else:
                         advice_all()
+                        if count == 0:
+                            preprocess_all()
+                            advice_all()
 
                 count += 1
                 seconds = 0
@@ -1025,6 +1040,9 @@ if __name__=='__main__':
                         g_show_all = not g_show_all
                         advice_all()
                         seconds = 0
+                    if ichar == ord('h'):
+                        g_hide_all = not g_hide_all
+                        break
                     stock_count = len(stock2line)
                     if ichar == ord('-') or ichar == curses.KEY_UP or ichar == curses.KEY_LEFT or ichar == ord('w'):
                         display_highlight_info(g_highlight_line, False)
