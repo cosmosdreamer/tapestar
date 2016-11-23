@@ -16,21 +16,22 @@ c_reset = '\033[0m'
 
 group_data = {}
 
+def log_status(message):
+    print message
+
 def group_stock(stock):
-    if stock['code'].startswith('30'):
-        return '深市创业板'
-    elif stock['code'].startswith('000'):
-        return '深市主板'
-    elif stock['code'].startswith('002'):
-        return '深市中小板'
-    elif stock['code'].startswith('60'):
-        return '沪市    '
-    elif stock['code'].startswith('510'):
-        return 'ETF     '
-    elif stock['code'].startswith('150') or stock['code'].startswith('502'):
-        return '分级基金'
+    if stock['marketvalue'] == 0:
+        return 'Unknown'
+    elif stock['marketvalue'] < 80:
+        return '< 80亿'
+    elif stock['marketvalue'] < 160:
+        return '< 160亿'
+    elif stock['marketvalue'] < 320:
+        return '< 320亿'
+    elif stock['marketvalue'] < 1000:
+        return '< 1000亿'
     else:
-        raise Exception('这是啥？ ' + stock['code'])
+        return '>= 1000亿'
 
 def calc_stock(stock):
     vest = 0
@@ -51,17 +52,32 @@ def display_stock_group(group, all_vest):
                 color = c_highlight_blue
             elif ratio > 8:
                 color = c_highlight_green
-            print '  %s %s:\t%s%4.1f%%%s\t\t%s' % (stock['code'], stock['name'], color, ratio, c_reset, str(stock['vest']))
+            print '  %s %s:\t%s%4.1f%%%s\t\t%s\t%s' % (stock['code'], stock['name'], color, ratio, c_reset, str(stock['vest']), str(stock['marketvalue']))
 
 def calc():
     all_vest = 0
     for stock in stockdata.all_stocks:
+        code = stock['code']
         dg = ts.get_realtime_quotes(stock['code'])
+        df = None
+        d = date.today()
+        count = 0
+        while (df is None or df.empty) and count < 10:
+            count += 1
+            d = d - timedelta(days=1)
+            datestr = d.strftime('%Y-%m-%d')
+            log_status('Getting hist data for %s at %s' % (code, datestr))
+            df = ts.get_hist_data(stock['code'], datestr, datestr)
+            log_status('Done hist data for %s at %s' % (code, datestr))
         stock['name'] = dg['name'][0]
+        if (df is None or df.empty) or df.get('turnover') is None:
+            stock['marketvalue'] = 0
+        else:
+            stock['marketvalue'] = float(df['close'][0]) * float(df['volume'][0]) * 100 / (float(df['turnover'][0] / 100)) / 100000000
         group = stock['group'] = group_stock(stock)
         vest = stock['vest'] = calc_stock(stock)
         if not group_data.has_key(group):
-            group_data[group] = 0
+            group_data[group] = vest
         else:
             group_data[group] += vest
         all_vest += vest

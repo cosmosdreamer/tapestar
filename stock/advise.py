@@ -41,7 +41,7 @@ c_dayK = db.dayK
 
 sh_index = {
     'code': 'sh',
-    'KDJ': { '2015-12-16': [56.44, 51.07, 67.18]},
+    'KDJ': { '2016-10-31': [67.27, 77.84, 46.12]},
     'price': 0,
 }
 
@@ -61,7 +61,7 @@ vip_codes = ['002008', '002290', '002450'] # 大禾康
 
 positioned_stock_count = 0
 
-const_totalBase = 160000
+const_totalBase = 200000
 
 investments = {
     'totalBase': const_totalBase,
@@ -430,11 +430,13 @@ def advise(stock):
     if position > 0:
         durationstr = '%2d/%2d' %(last, far)
 
+    stack = 0
     stackstr = '     '
     if stock.has_key('trades'):
         for trade in stock['trades']:
             direction = trade[1]
             if direction == 1:
+                stack += 1
                 stackstr = stackstr.replace(' ', '|', 1)
 
     index_profit_percent = 0
@@ -480,6 +482,7 @@ def advise(stock):
     stock['more_info_duration_last'] = last
     stock['more_info_duration_far'] = far
     stock['more_info_durationstr'] = durationstr
+    stock['more_info_stack'] = stack
     stock['more_info_stackstr'] = stackstr
     stock['more_info_index_profit_percent'] = index_profit_percent
     stock['more_info_index_profit_percentstr'] = index_profit_percentstr
@@ -618,7 +621,8 @@ def display_stock(stock, line):
     display_info('盈:%s' % (stock['more_info_profit_percentstr']), location, line, colorpair if dark_enabled else currentProfit_color)
     location += profit_width + separator
     regress_rate_color = 1
-    if stock['more_info_regress_rate'] >= 28:
+    if (not stock.has_key('last100') and stock['more_info_regress_rate'] >= 28) \
+        or stock.has_key('last100') and stock['last100'] and stock['more_info_stack'] == 1 and stock['more_info_regress_rate'] >= 58:
         regress_rate_color = 3
     display_info('回:%s' % (stock['more_info_regress_ratestr']), location, line, colorpair if dark_enabled else regress_rate_color)
     location += regression_width + separator
@@ -728,7 +732,7 @@ def display_highlight_info(index, highlight):
     display_info(str, location, index, color)
 
 def display_empty_line(line):  
-    display_info(' ' * 185, 0, line)
+    display_info(' ' * 192, 0, line)
     line += 1
     return line
 
