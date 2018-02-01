@@ -1,7 +1,19 @@
 # -*- coding: utf-8 -*-
+import sys
+
+# TODO: find a way to solve relative path issue.
+sys.path.insert(0, './tapestar/monitor/')
+sys.path.insert(0, '../monitor/')
+sys.path.insert(0, './tapestar/hstock/')
+sys.path.insert(0, '../hstock/')
+sys.path.insert(0, './tapestar/util/')
+sys.path.insert(0, '../util/')
+
 import curses  
 from dateutil import rrule
 from datetime import date, datetime, timedelta
+import dbman # own
+import hadvise # own
 import httplib
 import json
 import legalholidays # own
@@ -9,11 +21,12 @@ import locale
 from lxml import etree
 import lxml.html.soupparser as soupparser
 import math
+import observer # own
 import pymongo
-from pymongo import MongoClient
+#from pymongo import MongoClient
 import stockdata # own
+import stockdata2 # own
 import strutil # own
-import sys  
 import time
 import tushare as ts
 
@@ -25,19 +38,10 @@ system_code = locale.getpreferredencoding()
 
 stdscr = None
 
+all_stocks = stockdata.all_stocks_1
+
 #stock_codes = ['002450', '601766', '601288', '000488', '002008', '600522', '002164', '600008']
 #eyeon_stock_codes = ['002290', '600029', '002570', '000898']
-
-client = MongoClient()
-db = client.stock
-# history schema: {"code": code, "date": tdatestr, "close": df['close'][0], "open": df['open'][0], "high": df['high'][0]}
-c = db.history
-# trade schema: {"code": code, "recent_high": dh['high']}
-#db.trade.drop()
-#c_trade = db.trade
-#db.dayK.drop()
-reset_KDJ = False
-c_dayK = db.dayK
 
 sh_index = {
     'code': 'sh',
@@ -45,23 +49,23 @@ sh_index = {
     'price': 0,
 }
 
-precious_metals = [
-    {
-        'code': 1,
-        'name': '白银',
-        'trades': [
-            ['2015-12-14', 1, 3000, 2.87],
-        ],
-    }
-]
+#precious_metals = [
+#    {
+#        'code': 1,
+#        'name': '白银',
+#        'trades': [
+#            ['2015-12-14', 1, 3000, 2.87],
+#        ],
+#    }
+#]
 
-whitelist_codes = ['601288', '000725'] # 农业银行
+whitelist_codes = ['601288', '000725', '603203'] # 农业银行, 京东方A, 快客股份
 halt_codes = [] # real-time retrieve
 vip_codes = ['002008', '002290', '002450'] # 大禾康
 
 positioned_stock_count = 0
 
-const_totalBase = 200000
+const_totalBase = 250000
 
 investments = {
     'totalBase': const_totalBase,
@@ -84,7 +88,7 @@ def preprocess_all():
     investments['fine_indexed_cost'] = [0, 0, 0, 0, 0, 0, 0, 0]
     investments['indexedTotal'] = 0
     positioned_stock_count = 0
-    for stock in stockdata.all_stocks:
+    for stock in all_stocks:
         preprocess_stock(stock)
 
 def preprocess_stock(stock):
@@ -189,8 +193,13 @@ stock2line = {}
 
 const_baseOffsetPercent = 0.15
 
+g_advice_all_count = 0
+g_display_group_index = 0
+
 def advice_all():
     global positioned_stock_count
+    global g_advice_all_count
+    global g_display_group_index
     theTime = datetime.now()
 
     # line 1
@@ -203,7 +212,7 @@ def advice_all():
         % (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), \
         float(df['price'][0]), \
         (float(df['price'][0]) - float(df['pre_close'][0])) / float(df['pre_close'][0]) * 100, j, \
-        len(stockdata.all_stocks), positioned_stock_count, len(halt_codes))
+        len(all_stocks), positioned_stock_count, len(halt_codes))
     sh_index['price'] = float(df['price'][0])
     if g_arg_simplified:
         now = 'T: %s  上证: %7.2f  涨跌: %6.2f%% J:%6.2f' \
@@ -220,7 +229,7 @@ def advice_all():
         elif j >= 80:
             indexJ_color = 3
         display_info(indexJ, 59, 1, indexJ_color)
-    #stockCountInfo = 'Stocks: %d' % (len(stockdata.all_stocks))
+    #stockCountInfo = 'Stocks: %d' % (len(all_stocks))
     #display_info(stockCountInfo, 80, 1)
     
     # line 2
@@ -260,50 +269,88 @@ def advice_all():
         baseIndex - 400, investments['fine_indexed_cost'][7]/investments['total'] * 100)
     if not g_arg_simplified:
         display_info(indexed_coststr, 1, 4)
+
+    # line 5
+    display_header(5)
     
-    line = 5 if not g_arg_simplified else 2
+    line = 6 if not g_arg_simplified else 2
     new_stocks = today_new_stocks()
     if len(new_stocks) > 0:
         line += 1
         display_info('今新: ' + ' '.join(new_stocks), 1, 4)
 
-    for stock in stockdata.all_stocks:
-        advise(stock)
+    ind = 0
+    for stock in all_stocks:
+        advise(stock, len(all_stocks), ind)
+        ind += 1
+        if g_show_exceptX and stock['action'] == 'HIDE' and stock.has_key('comment') and stock['comment'].find('XXX') != -1:
+            stock['action'] = 'XXX'
 
-    stockdata.all_stocks.sort(compCurrentJ)
+    all_stocks.sort(compCurrentJ)
     global stock_index
     stock_index = 0
-    line = display_stock_group(stockdata.all_stocks, "卖出", line)
-    line = display_empty_line(line)
-    line = display_stock_group(stockdata.all_stocks, "买入", line)
-    line = display_empty_line(line)
-    line = display_stock_group(stockdata.all_stocks, "弱买", line)
-    line = display_stock_group(stockdata.all_stocks, "追高", line)
-    line = display_empty_line(line)
-    line = display_stock_group(stockdata.all_stocks, "忖卖", line)
-    line = display_stock_group(stockdata.all_stocks, "弱卖", line)
-    line = display_stock_group(stockdata.all_stocks, "薄卖", line)
-    line = display_stock_group(stockdata.all_stocks, "亏卖", line)
-    line = display_empty_line(line)
-    line = display_stock_group(stockdata.all_stocks, "持有", line)
-    line = display_empty_line(line)
-    line = display_stock_group(stockdata.all_stocks, "观望", line)
-    line = display_stock_group(stockdata.all_stocks, " -- ", line)
-    if g_show_all:
-        line = display_stock_group(stockdata.all_stocks, "HIDE", line)
-        line = display_stock_group(stockdata.all_stocks, "    ", line)
+    if not g_show_all or (g_show_all and g_display_group_index == 0):
+        line = display_stock_group(all_stocks, "卖出", line)
+        line = display_empty_line(line)
+        line = display_stock_group(all_stocks, "买入", line)
+        line = display_empty_line(line)
+        line = display_stock_group(all_stocks, "弱买", line)
+        line = display_stock_group(all_stocks, "追高", line)
+        line = display_empty_line(line)
+        line = display_stock_group(all_stocks, "忖卖", line)
+        line = display_stock_group(all_stocks, "弱卖", line)
+        line = display_stock_group(all_stocks, "薄卖", line)
+        line = display_stock_group(all_stocks, "亏卖", line)
+    if not g_show_all or (g_show_all and g_display_group_index == 1):
+        line = display_empty_line(line)
+        line = display_stock_group(all_stocks, "持有", line)
+        line = display_empty_line(line)
+        line = display_stock_group(all_stocks, "观望", line)
+        line = display_stock_group(all_stocks, " -- ", line)
+        if g_show_all or g_show_exceptX:
+            line = display_stock_group(all_stocks, "HIDE", line)
+            line = display_stock_group(all_stocks, "    ", line)
 
     line = display_empty_line(line)
     line = display_empty_line(line)
+
+    # 推荐产品
+    origin_line = line
+    if g_advice_all_count % 60 == 0:
+        for item in observer.invest_items:
+            item['comp_current'] = item['current']()
+            item['comp_advice'] = item['advice'](item, item['comp_current'])
+    for item in observer.invest_items:
+        if item['comp_advice'] != '':
+            advice_str = '    %s    %9.3f    %s' % (item['name'], item['comp_current'], item['comp_advice'])
+            display_info(advice_str, 1, line)
+            line += 1
+    g_advice_all_count += 1
+    if line == origin_line:
+        display_info('无推荐', 1, line)
+        line += 1
+
+    line = display_empty_line(line)
+
+    #TODO hadvise.advice_all(line)
+
     line = display_empty_line(line)
 
     elapsed = datetime.now() - theTime
     display_info(' ' + str(elapsed), 0, line + 1)
 
-def advise(stock):
-    log_status('Getting realtime quotes for %s' % (stock['code']))
+def display_header(line):
+    display_info('                          昨幅   今幅    现价   前买   前卖 仓位 盈利 回撤     J  久期 档位     指盈    指跌  转    浮盈   备注', 1, line)
+    line += 1
+    return line
+
+const_profitPercent = 0.06
+const_deficitPercent = 0.11
+
+def advise(stock, total, index):
+    log_status('(%d/%d) Getting realtime quotes for %s' % (index + 1, total, stock['code']))
     df = ts.get_realtime_quotes(stock['code'])
-    log_status('Done realtime quotes for %s' % (stock['code']))
+    log_status('(%d/%d) Done realtime quotes for %s' % (index + 1, total, stock['code']))
     dh = previous_data(stock['code'])
     
     # name
@@ -329,20 +376,28 @@ def advise(stock):
     previous_open = float(dh['open'])
 
     last_profit = stock['last_buy_position'] * (current_price - last_buy)
+    # 设置了margin
     if not g_show_all and stock.has_key('margin'):
         if len(stock['margin']) > 1 and stock['margin'][0] < current_price and stock['margin'][1] > current_price \
-            or len(stock["margin"]) == 1 and stock['margin'][0] < current_price and (position == 0 or current_price < stock["last_buy"] * 1.05):
+            or len(stock["margin"]) == 1 and stock['margin'][0] < current_price and (position == 0 or current_price < stock["last_buy"] * (1 + const_profitPercent)):
             stock['action'] = "HIDE"
             return
         elif last_profit > 0 and last_profit < 110.0:
             stock['action'] = "HIDE"
             return
-    elif not g_show_all and current_price > stock["last_buy"] * 0.90 and current_price < stock["last_buy"] * 1.05:
+    # last_buy * 0.x < current < last_buy * 1.x (暗示有仓位)
+    elif not g_show_all and current_price > stock["last_buy"] * (1 - const_deficitPercent) and current_price < stock["last_buy"] * (1 + const_profitPercent):
         stock['action'] = "HIDE"
         return
-    elif not g_show_all and position == 0 and stock["last_sell"] > 0 and current_price * 1.06 > stock["last_sell"]:
+    # 空仓，但操作过，卖飞了
+    elif not g_show_all and position == 0 and stock["last_sell"] > 0 and current_price * (1 + const_profitPercent) > stock["last_sell"]:
         stock['action'] = "HIDE"
         return
+    # 空仓，但操作过，没跌到位。熊市启用，震荡市可comment掉
+    elif not g_show_all and position == 0 and stock["last_sell"] > 0 and current_price * (1 - const_deficitPercent) > stock["last_sell"]:
+        stock['action'] = "HIDE"
+        return
+    # profit不足110
     elif not g_show_all and last_profit > 0 and last_profit < 110.0:
         stock['action'] = "HIDE"
         return
@@ -356,6 +411,10 @@ def advise(stock):
         if float(dh['close']) - float(dh['open']) < 0:
             strong_buy = whether_strong_buy(current_price, last_sell, last_buy)
             strong_buy = False if (j > 80) else strong_buy
+            if stock.has_key('last_buy_date'):
+                # 距离上次买入需超过3个月或下跌超过30%
+                strong_buy = False if (date.today() - datetime.strptime(stock['last_buy_date'], '%Y-%m-%d').date()).days < 90 or \
+                    current_price > stock["last_buy"] * 0.70 else strong_buy
             if strong_buy:
                 action = "买入"
                 action_color = 2
@@ -401,8 +460,12 @@ def advise(stock):
     stock['action_color'] = action_color
  
     profit_percent = 0
-    if last_buy > 0 and position > 0:
+    if last_buy > 0 :#and position > 0:
         profit_percent = math.floor((current_price - last_buy) / last_buy * 100)
+    elif last_sell > 0 :#and position > 0:
+        profit_percent = math.floor((current_price - last_sell) / last_sell * 100)
+        if profit_percent > 0:
+            profit_percent = 0
     #if profit_percent <= -10:
     #    profit_percent = 0
  
@@ -559,21 +622,36 @@ def display_stock(stock, line):
     code_width = 6
     name_width = 8
     action_width = 4
-    previousChange_width = 10
-    todayChange_width = 9
-    currentPrice_width = 11
-    lastBuy_width = 13
-    lastSell_width = 9
-    position_width = 7
-    profit_width = 7
-    regression_width = 6
-    j_width = 8
-    duration_width = 8
-    stack_width = 8
-    indexProfit_width = 10
-    indexCost_width = 10
-    turnover_width = 6
-    todayChange_width = 10
+    #previousChange_width = 10
+    #todayChange_width = 9
+    #currentPrice_width = 11
+    #lastBuy_width = 13
+    #lastSell_width = 9
+    #position_width = 7
+    #profit_width = 7
+    #regression_width = 6
+    #j_width = 8
+    #duration_width = 8
+    #stack_width = 8
+    #indexProfit_width = 10
+    #indexCost_width = 10
+    #turnover_width = 6
+    #todayChange_width = 10
+    previousChange_width = 6
+    todayChange_width = 6
+    currentPrice_width = 6
+    lastBuy_width = 6
+    lastSell_width = 6
+    position_width = 4
+    profit_width = 4
+    regression_width = 3
+    j_width = 6
+    duration_width = 5
+    stack_width = 5
+    indexProfit_width = 7
+    indexCost_width = 7
+    turnover_width = 3
+    todayChange_width = 7
 
     dark_enabled = (g_dark_enabled % 3 == 1 and stock['position'] > 0) or \
         (g_dark_enabled % 3 == 2 and stock['position'] == 0)
@@ -595,66 +673,83 @@ def display_stock(stock, line):
 
     # more_info
         location += action_width + separator
-        display_info('(昨:%6.2f' % (stock['more_info_previousChange']), location, line, colorpair)
+        #display_info('(昨:%6.2f' % (stock['more_info_previousChange']), location, line, colorpair)
+        display_info('%6.2f' % (stock['more_info_previousChange']), location, line, colorpair)
         location += previousChange_width + separator
-        display_info('今:%6.2f' % (stock['more_info_todayChange']), location, line, colorpair)
+        #display_info('今:%6.2f' % (stock['more_info_todayChange']), location, line, colorpair)
+        display_info('%6.2f' % (stock['more_info_todayChange']), location, line, colorpair)
         location += todayChange_width + separator
 
     if g_arg_simplified:
         display_info('%6.2f/%6.2f' % (stock['more_info_currentPrice'], stock['more_info_lastBuy']), location, line, colorpair)
         location += 13 + separator
     else:
-        display_info('现价:%6.2f' % (stock['more_info_currentPrice']), location, line, colorpair)
+        #display_info('现价:%6.2f' % (stock['more_info_currentPrice']), location, line, colorpair)
+        display_info('%6.2f' % (stock['more_info_currentPrice']), location, line, colorpair)
         location += currentPrice_width + separator
-        display_info('上次买:%6.2f' % (stock['more_info_lastBuy']), location, line, colorpair)
+        #display_info('上次买:%6.2f' % (stock['more_info_lastBuy']), location, line, colorpair)
+        display_info('%6.2f' % (stock['more_info_lastBuy']), location, line, colorpair)
         location += lastBuy_width + separator
 
     if not g_arg_simplified:
-        display_info('卖:%6.2f' % (stock['more_info_lastSell']), location, line, colorpair)
+        #display_info('卖:%6.2f' % (stock['more_info_lastSell']), location, line, colorpair)
+        display_info('%6.2f' % (stock['more_info_lastSell']), location, line, colorpair)
         location += lastSell_width + separator
-        display_info('仓:%4d' % (stock['more_info_position']), location, line, colorpair)
+        #display_info('仓:%4d' % (stock['more_info_position']), location, line, colorpair)
+        display_info('%4d' % (stock['more_info_position']), location, line, colorpair)
         location += position_width + separator
     currentProfit_color = 1
     duration = stock['more_info_duration_last'] if stock.has_key('more_info_duration_last') else 0
     if stock['more_info_profit_percent'] >= 7 + duration:
         currentProfit_color = 3
-    display_info('盈:%s' % (stock['more_info_profit_percentstr']), location, line, colorpair if dark_enabled else currentProfit_color)
+    elif stock['more_info_lastBuy'] == 0 and stock['more_info_profit_percentstr'] != '':
+        currentProfit_color = 2
+    #display_info('盈:%s' % (stock['more_info_profit_percentstr']), location, line, colorpair if dark_enabled else currentProfit_color)
+    display_info('%s' % (stock['more_info_profit_percentstr']), location, line, colorpair if dark_enabled else currentProfit_color)
     location += profit_width + separator
     regress_rate_color = 1
     if (not stock.has_key('last100') and stock['more_info_regress_rate'] >= 28) \
         or stock.has_key('last100') and stock['last100'] and stock['more_info_stack'] == 1 and stock['more_info_regress_rate'] >= 58:
         regress_rate_color = 3
-    display_info('回:%s' % (stock['more_info_regress_ratestr']), location, line, colorpair if dark_enabled else regress_rate_color)
+    #display_info('回:%s' % (stock['more_info_regress_ratestr']), location, line, colorpair if dark_enabled else regress_rate_color)
+    display_info('%s' % (stock['more_info_regress_ratestr']), location, line, colorpair if dark_enabled else regress_rate_color)
     location += regression_width + separator
     currentJ_color = 1
     if stock['more_info_currentJ'] <= 20:
         currentJ_color = 2
     elif stock['more_info_currentJ'] >= 80:
         currentJ_color = 3
-    display_info('J:%6.2f' % (stock['more_info_currentJ']), location, line, colorpair if dark_enabled else currentJ_color)
+    #display_info('J:%6.2f' % (stock['more_info_currentJ']), location, line, colorpair if dark_enabled else currentJ_color)
+    display_info('%6.2f' % (stock['more_info_currentJ']), location, line, colorpair if dark_enabled else currentJ_color)
     location += j_width + separator
     if not g_arg_simplified:
-        display_info('期:%s' % (stock['more_info_durationstr']), location, line, colorpair)
+        #display_info('期:%s' % (stock['more_info_durationstr']), location, line, colorpair)
+        display_info('%s' % (stock['more_info_durationstr']), location, line, colorpair)
         location += duration_width + separator
-        display_info('栈:%s' % (stock['more_info_stackstr']), location, line, colorpair)
+        #display_info('栈:%s' % (stock['more_info_stackstr']), location, line, colorpair)
+        display_info('%s' % (stock['more_info_stackstr']), location, line, colorpair)
         location += stack_width + separator
         index_profit_color = 1
         if stock['more_info_index_profit_percent'] * 100 >= 5:
             index_profit_color = 3
-        display_info('点:%s' % (stock['more_info_index_profit_percentstr']), location, line, colorpair if dark_enabled else index_profit_color)
+        #display_info('点:%s' % (stock['more_info_index_profit_percentstr']), location, line, colorpair if dark_enabled else index_profit_color)
+        display_info('%s' % (stock['more_info_index_profit_percentstr']), location, line, colorpair if dark_enabled else index_profit_color)
         location += indexProfit_width + separator
         index_cost_color = 1
         if stock['more_info_index_cost_percent'] * 100 <= -5 \
             and stock['more_info_index_profit_percent'] * 100 <= 0 \
             and stock['more_info_currentJ'] <= 20:
             index_cost_color = 2
-        display_info('进:%s' % (stock['more_info_index_cost_percentstr']), location, line, colorpair if dark_enabled else index_cost_color)
+        #display_info('进:%s' % (stock['more_info_index_cost_percentstr']), location, line, colorpair if dark_enabled else index_cost_color)
+        display_info('%s' % (stock['more_info_index_cost_percentstr']), location, line, colorpair if dark_enabled else index_cost_color)
         location += indexCost_width + separator
-        display_info('转:%3d' % stock['turnover'], location, line, colorpair)
+        #display_info('转:%3d' % stock['turnover'], location, line, colorpair)
+        display_info('%3d' % stock['turnover'], location, line, colorpair)
         location += turnover_width + separator
-        display_info('详:%7d' % stock['more_info_today_change'], location, line, colorpair)
+        #display_info('详:%7d' % stock['more_info_today_change'], location, line, colorpair)
+        display_info('%7d' % stock['more_info_today_change'], location, line, colorpair)
         location += todayChange_width + separator
-        display_info(')', location, line, colorpair)
+        #display_info(')', location, line, colorpair)
 
         # comment
         location += 1 + separator
@@ -739,7 +834,7 @@ def display_empty_line(line):
 def get_today_KDJ933(stock, current_price, today_high, today_low):
     if not stock.has_key('KDJ'):
         raise Exception('no KDJ' + stock['code'])
-    real = is_tradedate(date.today())
+    real = is_trade_date(date.today())
     return compute_KDJ933(stock, date.today(), current_price, today_high, today_low, real)
 
 def compute_KDJ933(stock, theDate, close, high, low, real):
@@ -778,16 +873,16 @@ def get_previous_KDJ933(stock, theDate):
     if dh is None:
         print "dh is None. Shouldn't happen."
         return (0, 0, 0)
-    if dh.has_key('theK') and (not reset_KDJ):
+    if dh.has_key('theK') and (not dbman.reset_KDJ):
         return (dh['theK'], dh['theD'], dh['theJ'])
     (k, d, j) = compute_KDJ933(stock, theOriginDate, dh['close'], dh['high'], dh['low'], dh['real'])
-    c_dayK.update({"code": stock['code'], "date": datestr}, {"$set": {"theK": k, "theD": d, "theJ": j}})
+    dbman.c_dayK.update({"code": stock['code'], "date": datestr}, {"$set": {"theK": k, "theD": d, "theJ": j}})
     return (k, d, j)
 
 def previous_data(code):
     d = date.today()
     tdatestr = d.strftime('%Y-%m-%d')
-    dh = c.aggregate([{"$match": {"code": {"$eq": code}}}, {"$match": {"date": {"$eq": tdatestr}}}])
+    dh = dbman.c.aggregate([{"$match": {"code": {"$eq": code}}}, {"$match": {"date": {"$eq": tdatestr}}}])
     dh = list(dh)
     
     if len(dh) == 0 or (len(dh) != 0 and not dh[0].has_key('high')):
@@ -801,51 +896,55 @@ def previous_data(code):
             log_status('Done hist data for %s at %s' % (code, datestr))
             #print df
             if df is None or df.empty:
-                pdh = c.aggregate([{"$match": {"code": {"$eq": code}}}, {"$match": {"date": {"$eq": datestr}}}])
+                pdh = dbman.c.aggregate([{"$match": {"code": {"$eq": code}}}, {"$match": {"date": {"$eq": datestr}}}])
                 pdh = list(pdh)
                 if len(pdh) != 0:
                     if len(dh) == 0:
-                        c.insert({"code": code, "date": tdatestr, "close": pdh[0]['close'], "open": pdh[0]['open'], "high": pdh[0]['high']})
+                        dbman.c.insert({"code": code, "date": tdatestr, "close": pdh[0]['close'], "open": pdh[0]['open'], "high": pdh[0]['high']})
                     else:
-                        c.update({"code": code, "date": tdatestr}, {"$set": {"high": pdh[0]['high']}})
-                    dh = c.aggregate([{"$match": {"code": {"$eq": code}}}, {"$match": {"date": {"$eq": tdatestr}}}])
+                        dbman.c.update({"code": code, "date": tdatestr}, {"$set": {"high": pdh[0]['high']}})
+                    dh = dbman.c.aggregate([{"$match": {"code": {"$eq": code}}}, {"$match": {"date": {"$eq": tdatestr}}}])
                     dh = list(dh)
                     return dh[0]
         if len(dh) == 0:
-            c.insert({"code": code, "date": tdatestr, "close": df['close'][0], "open": df['open'][0], "high": df['high'][0]})
+            dbman.c.insert({"code": code, "date": tdatestr, "close": df['close'][0], "open": df['open'][0], "high": df['high'][0]})
         else:
-            c.update({"code": code, "date": tdatestr}, {"$set": {"high": df['high'][0]}})
-        dh = c.aggregate([{"$match": {"code": {"$eq": code}}}, {"$match": {"date": {"$eq": tdatestr}}}])
+            dbman.c.update({"code": code, "date": tdatestr}, {"$set": {"high": df['high'][0]}})
+        dh = dbman.c.aggregate([{"$match": {"code": {"$eq": code}}}, {"$match": {"date": {"$eq": tdatestr}}}])
         dh = list(dh)
         #print len(dh)
 
     return dh[0]
 
-def previous_data_with_date(code, datestr):
+def previous_data_with_date(code, datestr, logstatus = True, recursive = True):
     originDateStr = datestr
-    dh = c_dayK.aggregate([{"$match": {"code": {"$eq": code}}}, {"$match": {"date": {"$eq": datestr}}}])
+    dh = dbman.c_dayK.aggregate([{"$match": {"code": {"$eq": code}}}, {"$match": {"date": {"$eq": datestr}}}])
     dh = list(dh)
     
     if len(dh) == 0:
-        log_status('Getting hist data for %s at %s' % (code, datestr))
+        if logstatus:
+            log_status('Getting hist data for %s at %s' % (code, datestr))
         df = ts.get_hist_data(code, start=datestr, end=datestr)
-        log_status('Done hist data for %s at %s' % (code, datestr))
+        if logstatus:
+            log_status('Done hist data for %s at %s' % (code, datestr))
         d = datetime.strptime(datestr, '%Y-%m-%d').date()
         if df is None or df.empty:
+            if not recursive:
+                return None
             d = d - timedelta(days=1)
             datestr = d.strftime('%Y-%m-%d')
             #df = ts.get_hist_data(code, start=datestr, end=datestr)
             dh = previous_data_with_date(code, datestr)
-            c_dayK.insert({"code": code, "real": False, "date": originDateStr, "close": dh['close'], "open": dh['open'], "high": dh['high'], "low": dh['low']})
+            dbman.c_dayK.insert({"code": code, "real": False, "date": originDateStr, "close": dh['close'], "open": dh['open'], "high": dh['high'], "low": dh['low']})
         else:
-            c_dayK.insert({"code": code, "real": True, "date": originDateStr, "close": df['close'][0], "open": df['open'][0], "high": df['high'][0], "low": df['low'][0]})
-        dh = c_dayK.aggregate([{"$match": {"code": {"$eq": code}}}, {"$match": {"date": {"$eq": originDateStr}}}])
+            dbman.c_dayK.insert({"code": code, "real": True, "date": originDateStr, "close": df['close'][0], "open": df['open'][0], "high": df['high'][0], "low": df['low'][0]})
+        dh = dbman.c_dayK.aggregate([{"$match": {"code": {"$eq": code}}}, {"$match": {"date": {"$eq": originDateStr}}}])
         dh = list(dh)
 
     return dh[0]
 
 def today_new_stocks():
-    dh = db.new_stocks.find()
+    dh = dbman.db.new_stocks.find()
     dh = list(dh)
     new_stocks = []
     for record in dh:
@@ -854,7 +953,8 @@ def today_new_stocks():
             new_stocks.append(record['code'])
     return new_stocks
 
-def is_tradedate(date):
+# tested
+def is_trade_date(date):
     if date.weekday() == 5 or date.weekday() == 6:
         return False # Saturday or Sunday
     datestr = date.strftime('%Y-%m-%d')
@@ -862,34 +962,36 @@ def is_tradedate(date):
     if datestr in legalholidays.legal_holidays:
         #print 'False'
         return False
-    if date.year < 2015 or date.year > 2016:
+    if date.year < 2015 or date.year > 2018:
         raise Exception('year not supported!')
     return True
 
-def update_metal():
-    if g_arg_simplified:
-        return
-    conn = httplib.HTTPConnection("www.icbc.com.cn")
-    conn.request("GET", "/ICBCDynamicSite/Charts/GoldTendencyPicture.aspx")
-    res = conn.getresponse()
-    if res.status == 200:
-        theData = res.read()
-        #print theData
-        dom = soupparser.fromstring(theData)
-        # no tbody for first table. index starts from 1
-        current_price = dom.xpath("//body/form/table/tr/td/table[6]/tbody/tr/td/div/table/tbody/tr[3]/td[3]")
-        if len(current_price) > 0:
-            current_price = current_price[0].text.strip()
-            last_buy = precious_metals[0]["trades"][-1][3]
-            profit_percent = math.floor((float(current_price) - last_buy) / last_buy * 10000) / 100
-            if profit_percent > 0:
-                profit_percentstr = str(profit_percent) + "%"
-            else:
-                profit_percentstr = " "
-            display_info("银: " + current_price + " 盈: " + profit_percentstr, 100, 1)
-    conn.close()
+#def update_metal():
+#    if g_arg_simplified:
+#        return
+#    conn = httplib.HTTPConnection("www.icbc.com.cn")
+#    conn.request("GET", "/ICBCDynamicSite/Charts/GoldTendencyPicture.aspx")
+#    res = conn.getresponse()
+#    if res.status == 200:
+#        theData = res.read()
+#        #print theData
+#        dom = soupparser.fromstring(theData)
+#        # no tbody for first table. index starts from 1
+#        current_price = dom.xpath("//body/form/table/tr/td/table[6]/tbody/tr/td/div/table/tbody/tr[3]/td[3]")
+#        if len(current_price) > 0:
+#            current_price = current_price[0].text.strip()
+#            last_buy = precious_metals[0]["trades"][-1][3]
+#            profit_percent = math.floor((float(current_price) - last_buy) / last_buy * 10000) / 100
+#            if profit_percent > 0:
+#                profit_percentstr = str(profit_percent) + "%"
+#            else:
+#                profit_percentstr = " "
+#            display_info("银: " + current_price + " 盈: " + profit_percentstr, 100, 1)
+#    conn.close()
 
 g_simplified_status = ''
+
+# no-test
 def log_status(message):
     # temp: use space to avoid messy chars.
     global g_arg_simplified
@@ -899,7 +1001,8 @@ def log_status(message):
         display_info(g_simplified_status, 1, 0)
         return
     display_info('[%s]  %s %s' % (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), message, ' ' * 30), 1, 0)
-  
+
+# no-test
 def display_info(str, x, y, colorpair=1):  
     '''''使用指定的colorpair显示文字'''  
     try:  
@@ -908,7 +1011,8 @@ def display_info(str, x, y, colorpair=1):
         stdscr.refresh()  
     except Exception,e:  
         pass  
-  
+
+# no-test
 def get_ch_and_continue():  
     '''''演示press any key to continue'''  
     global stdscr  
@@ -919,7 +1023,8 @@ def get_ch_and_continue():
     #重置nodelay，使得控制台可以以非阻塞的方式接受控制台输入，超时1秒  
     stdscr.nodelay(1)  
     return True  
-  
+
+# no-test
 def set_win():  
     '''''控制台设置'''  
     global stdscr  
@@ -938,7 +1043,8 @@ def set_win():
     curses.cbreak()  
     #设置nodelay，使得控制台可以以非阻塞的方式接受控制台输入，超时1秒  
     stdscr.nodelay(1)  
-  
+
+# no-test
 def unset_win():  
     '''''控制台重置'''  
     global stdscr  
@@ -948,6 +1054,7 @@ def unset_win():
     #结束窗口  
     curses.endwin()  
 
+# no-test
 def print_KDJ(stock, theDate):
     baseKDJDateStr = stock['KDJ'].keys()[0]
     if datetime.strptime(baseKDJDateStr, '%Y-%m-%d').date() == theDate:
@@ -958,14 +1065,16 @@ def print_KDJ(stock, theDate):
         print theDateStr + " KDJ %6.2f %6.2f %6.2f" % (k, d, j)
         print_KDJ(stock, theDate - timedelta(days=1))
 
+# no-test
 def print_KDJs(code):
     theDate = date.today()
-    for stock in stockdata.all_stocks:
+    for stock in all_stocks:
         if stock['code'] == code:
             print_KDJ(stock, theDate - timedelta(days=1))
 
 const_tradeTimeOffset = 3
 
+# tested
 def is_trade_time(theTime):
     return (theTime.hour == 9 and theTime.minute >= 30 - const_tradeTimeOffset) or \
         (theTime.hour == 10) or (theTime.hour == 11 and theTime.minute <= 30 + const_tradeTimeOffset) or \
@@ -973,6 +1082,7 @@ def is_trade_time(theTime):
         (theTime.hour >= 13 and theTime.hour < 15) or \
         (theTime.hour == 15 and theTime.minute <= const_tradeTimeOffset)
 
+# no-test
 def getch(stdscr):
     ichar = stdscr.getch()
     if ichar == 27 and stdscr.getch() == ord('['):
@@ -991,18 +1101,29 @@ g_highlight_stock_index = 0
 g_highlight_line = 5
 g_show_all = False
 g_hide_all = False
+g_show_exceptX = False
 
 g_arg_simplified = False
 
+# no-test
 def parse_args():
     global g_arg_simplified
     if len(sys.argv) >= 2 and sys.argv[1] == '-s':
         g_arg_simplified = True
 
 DEBUG = False
+stdscr = None
 
-if __name__=='__main__':  
-    #global stdscr
+def run_main():  
+    global stdscr
+    global g_show_all
+    global g_hide_all
+    global g_dark_enabled
+    global g_show_exceptX
+    global g_highlight_stock_index
+    global g_highlight_line
+    global g_display_group_index
+    global all_stocks
     parse_args()
     if DEBUG:
         #try:  
@@ -1019,6 +1140,7 @@ if __name__=='__main__':
         try:  
             set_win()  
             preprocess_all()
+            hadvise.preprocess_all()
             while True:
                 if count == 0 or is_trade_time(datetime.now()):
                     if g_hide_all:
@@ -1036,6 +1158,15 @@ if __name__=='__main__':
                     seconds += 1
                     time.sleep(1)
                     ichar = getch(stdscr)
+                    if ichar == ord('^'):
+                        all_stocks = stockdata2.all_stocks_2
+                        preprocess_all()
+                        advice_all()
+                        seconds = 0
+                    if ichar == ord('p'):
+                        g_display_group_index = 0 if g_display_group_index == 1 else 1
+                        advice_all()
+                        seconds = 0
                     if ichar == ord('d'):
                         g_dark_enabled += 1
                         advice_all()
@@ -1047,6 +1178,11 @@ if __name__=='__main__':
                     if ichar == ord('h'):
                         g_hide_all = not g_hide_all
                         break
+                    if ichar == ord('x'):
+                        g_show_all = not g_show_all
+                        g_show_exceptX = not g_show_exceptX
+                        advice_all()
+                        seconds = 0
                     stock_count = len(stock2line)
                     if ichar == ord('-') or ichar == curses.KEY_UP or ichar == curses.KEY_LEFT or ichar == ord('w'):
                         display_highlight_info(g_highlight_line, False)
@@ -1071,8 +1207,8 @@ if __name__=='__main__':
                         g_highlight_line = stock2line[str(g_highlight_stock_index)]
                         display_highlight_info(g_highlight_line, True)
 
-                if count % 10 == 1:
-                    update_metal()
+                #if count % 10 == 1:
+                #    update_metal()
                 #time.sleep(60)
         #except Exception,e:  
         #    unset_win()  
@@ -1080,4 +1216,8 @@ if __name__=='__main__':
         finally:  
             unset_win()
             pass
+
+if __name__=='__main__':
+    from autoreload import run_with_reloader
+    run_with_reloader(run_main)
 

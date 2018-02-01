@@ -18,8 +18,12 @@ class TestStockAdvise(unittest.TestCase):
         self.assertEqual(advise.is_trade_time(datetime.datetime(2016, 1, 1, 15, 5)), False)
 
     def test_is_trade_date(self):
-        self.assertFalse(advise.is_tradedate(datetime.date(2016, 10, 7)))
-        self.assertTrue(advise.is_tradedate(datetime.date(2016, 10, 10)))
+        self.assertFalse(advise.is_trade_date(datetime.date(2016, 10, 7)))
+        self.assertTrue(advise.is_trade_date(datetime.date(2016, 10, 10)))
+        self.assertFalse(advise.is_trade_date(datetime.date(2016, 12, 31)))
+        self.assertFalse(advise.is_trade_date(datetime.date(2017, 1, 1)))
+        self.assertFalse(advise.is_trade_date(datetime.date(2017, 1, 2)))
+        self.assertTrue(advise.is_trade_date(datetime.date(2017, 1, 3)))
 
 if __name__ == '__main__':
     unittest.main()

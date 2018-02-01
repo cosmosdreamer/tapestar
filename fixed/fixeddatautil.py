@@ -4,6 +4,17 @@ import json
 import lxml.html.soupparser as soupparser
 import tushare as ts
 
+def get_copper_current():
+    current = 0
+    conn = httplib.HTTPConnection("www.cu168.com")
+    conn.request("GET", "/data/lme.php")
+    res = conn.getresponse()
+    if res.status == 200:
+        theData = res.read()
+        current = float(theData[10:17])
+    conn.close()
+    return current
+
 def get_silver_current():
     current = 0
     conn = httplib.HTTPConnection("www.icbc.com.cn")

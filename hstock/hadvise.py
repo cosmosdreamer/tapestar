@@ -105,17 +105,19 @@ def get_hold_duration(stock):
 
 stock_index = 0
 
-def advice_all():
+def advice_all(start_line):
     global positioned_stock_count
     theTime = datetime.now()
+
+    line = start_line + 1
 
     # line 1
     now = 'Time: %s  关注: %2d 持仓: %2d' \
         % (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), \
         len(hstockdata.all_stocks), positioned_stock_count)
-    display_info(now, 1, 1)
+    display_info(now, 1, line)
     
-    line = 2
+    line = line + 1
 
     for stock in hstockdata.all_stocks:
         advise(stock)
@@ -527,7 +529,7 @@ if __name__=='__main__':
             preprocess_all()
             while True:
                 if count == 0 or is_trade_time():
-                    advice_all()
+                    advice_all(0)
 
                 count += 1
                 seconds = 0
@@ -537,11 +539,11 @@ if __name__=='__main__':
                     ichar = getch(stdscr)
                     if ichar == ord('d'):
                         g_dark_enabled += 1
-                        advice_all()
+                        advice_all(0)
                         seconds = 0
                     if ichar == ord('a'):
                         g_show_all = not g_show_all
-                        advice_all()
+                        advice_all(0)
                         seconds = 0
         finally:  
             unset_win()

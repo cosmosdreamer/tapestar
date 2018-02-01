@@ -15,6 +15,7 @@ c_default_white = '\033[0;37;40m'
 c_reset = '\033[0m'
 
 group_data = {}
+all_stocks = stockdata.all_stocks_1
 
 def log_status(message):
     print message
@@ -42,7 +43,7 @@ def calc_stock(stock):
     return vest
 
 def display_stock_group(group, all_vest):
-    for stock in stockdata.all_stocks:
+    for stock in all_stocks:
         if stock['group'] == group:
             ratio = stock['vest'] * 100 / all_vest
             color = c_default_white
@@ -56,7 +57,7 @@ def display_stock_group(group, all_vest):
 
 def calc():
     all_vest = 0
-    for stock in stockdata.all_stocks:
+    for stock in all_stocks:
         code = stock['code']
         dg = ts.get_realtime_quotes(stock['code'])
         df = None

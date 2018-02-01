@@ -8,6 +8,8 @@ import stockdata
 from datetime import date, datetime, timedelta
 import tushare as ts
 
+all_stocks = stockdata.all_stocks_1
+
 # print stockdata.all_stocks
 
 def compPChange(stockX, stockY):
@@ -19,12 +21,13 @@ def compCloseChange(stockX, stockY):
 def calc():
     changes = []
     count = 0
-    for stock in stockdata.all_stocks:
+    for stock in all_stocks:
         count += 1
         #if count > 5:
         #    break
         code = stock['code']
-        df = get_dataOfYear(code, 2016)
+        #df = get_dataOfYear(code, 2016)
+        df = get_dataOfMonths(code, 4)
         dg = ts.get_realtime_quotes(code)
         print 'Got data of code %s' % (code)
         change = { 'code': code, 'name': dg['name'][0], 'pChangeTotal': 0, 'closeChangeTotal': 0 }
@@ -53,11 +56,19 @@ def calc():
     print '\n\nEnjoy.\n'
 
 def get_dataOfYear(code, year):
-    start = '%d-01-01' % (year)
+    start = '%d-08-01' % (year)
     end = '%d-12-31' % (year)
     theTime = datetime.now()
     if year == theTime.year:
         end = theTime.strftime('%Y-%m-%d')
+    df = ts.get_hist_data(code, start=start, end=end)
+    # print df
+    return df
+
+def get_dataOfMonths(code, months):
+    theTime = datetime.now()
+    end = theTime.strftime('%Y-%m-%d')
+    start = (theTime - timedelta(days=months * 30)).strftime('%Y-%m-%d') 
     df = ts.get_hist_data(code, start=start, end=end)
     # print df
     return df
