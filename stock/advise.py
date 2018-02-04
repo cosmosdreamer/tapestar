@@ -39,6 +39,8 @@ system_code = locale.getpreferredencoding()
 stdscr = None
 
 all_stocks = stockdata.all_stocks_1
+all_stocks_index = 1
+all_stocks_realtime_quotes = None
 
 #stock_codes = ['002450', '601766', '601288', '000488', '002008', '600522', '002164', '600008']
 #eyeon_stock_codes = ['002290', '600029', '002570', '000898']
@@ -196,31 +198,33 @@ const_baseOffsetPercent = 0.15
 g_advice_all_count = 0
 g_display_group_index = 0
 
-def advice_all():
-    global positioned_stock_count
-    global g_advice_all_count
-    global g_display_group_index
-    theTime = datetime.now()
-
-    # line 1
+def display_overview(line):
+    # Time 上证指数/涨跌/J 关注/持仓/停牌
     log_status('Getting sh index')
     df = ts.get_realtime_quotes(sh_index['code'])
     log_status('Done sh index')
-    sh_index['price'] = float(df['price'][0])
-    (k, d, j) = get_today_KDJ933(sh_index, float(df['price'][0]), float(df['high'][0]), float(df['low'][0]))
+
+    sh_index['price'] = today_price = float(df['price'][0])
+    sh_index['high'] = today_high = float(df['high'][0])
+    sh_index['low'] = today_low = float(df['low'][0])
+    sh_index['pre_close'] = pre_close = float(df['pre_close'][0])
+
+    (k, d, j) = get_today_KDJ933(sh_index, today_price, today_high, today_low)
+    today_change_percent = (today_price - pre_close) / pre_close * 100
+    time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
     now = 'Time: %s  上证: %7.2f  涨跌: %6.2f%% J:%6.2f  关注: %2d 持仓: %2d 停牌: %2d' \
-        % (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), \
-        float(df['price'][0]), \
-        (float(df['price'][0]) - float(df['pre_close'][0])) / float(df['pre_close'][0]) * 100, j, \
+        % (time_str, \
+        today_price, today_change_percent, j, \
         len(all_stocks), positioned_stock_count, len(halt_codes))
-    sh_index['price'] = float(df['price'][0])
     if g_arg_simplified:
         now = 'T: %s  上证: %7.2f  涨跌: %6.2f%% J:%6.2f' \
-        % (datetime.now().strftime('%H:%M:%S'), \
-        float(df['price'][0]), \
-        (float(df['price'][0]) - float(df['pre_close'][0])) / float(df['pre_close'][0]) * 100, j)
-    display_info(now, 1, 1)
-    #workaround to color index J
+        % (time_str, \
+        today_price, today_change_percent, j)
+    display_info(now, 1, line)
+    line += 1
+
+    # workaround to color index J
     if not g_arg_simplified:
         indexJ = '%6.2f' % j
         indexJ_color = 1
@@ -229,10 +233,10 @@ def advice_all():
         elif j >= 80:
             indexJ_color = 3
         display_info(indexJ, 59, 1, indexJ_color)
-    #stockCountInfo = 'Stocks: %d' % (len(all_stocks))
-    #display_info(stockCountInfo, 80, 1)
-    
-    # line 2
+
+    return line
+
+def display_indexed_cost_dist(line):
     indexed_coststr = '[>5000:%6.2f%%|>4500:%6.2f%%|>4000:%6.2f%%|>3500:%6.2f%%|>3000:%6.2f%%|>2500:%6.2f%%|>2000:%6.2f%%|>1500:%6.2f%%] - %7.2f' \
         % (investments['indexed_cost'][0]/investments['total'] * 100, \
         investments['indexed_cost'][1]/investments['total'] * 100, \
@@ -243,10 +247,12 @@ def advice_all():
         investments['indexed_cost'][6]/investments['total'] * 100, \
         investments['indexed_cost'][7]/investments['total'] * 100, investments['indexedTotal'] / investments['total'])
     if not g_arg_simplified:
-        display_info(indexed_coststr, 1, 2)
+        display_info(indexed_coststr, 1, line)
+        line += 1
+    return line
 
-    # line 3
-    current_invest_base = (1 - (float(df['price'][0]) / 500 - 2)*0.1) * investments['totalBase']
+def display_cost(line):
+    current_invest_base = (1 - (sh_index['price'] / 500 - 2) * 0.1) * investments['totalBase']
     invest_status = '仓/允: %6.0f/%6.0f, 除农: %6.0f, 除农比: %6.2f%%, 除停: %6.0f, 除停比: %6.2f%%, 大禾康占比: %6.2f%%' \
         % (investments['total'], current_invest_base, investments['totalExceptWhitelist'], \
         (investments['totalExceptWhitelist'] - (current_invest_base - investments['totalBase'] * const_baseOffsetPercent)) / (investments['totalBase'] * const_baseOffsetPercent * 2) * 100, \
@@ -254,9 +260,11 @@ def advice_all():
         (investments['totalExceptWhitelistAndHalt'] - (current_invest_base - investments['totalBase'] * const_baseOffsetPercent)) / (investments['totalBase'] * const_baseOffsetPercent * 2) * 100, \
         investments['totalVip'] / investments['total'] * 100)
     if not g_arg_simplified:
-        display_info(invest_status, 1, 3)
-    
-    # line 4
+        display_info(invest_status, 1, line)
+        line += 1
+    return line
+ 
+def display_fine_indexed_cost_dist(line):
     baseIndex = int(sh_index['price']) / 100 * 100
     indexed_coststr = '[>%4d:%6.2f%%|>%4d:%6.2f%%|>%4d:%6.2f%%|>%4d:%6.2f%%|>%4d:%6.2f%%|>%4d:%6.2f%%|>%4d:%6.2f%%|>%4d:%6.2f%%]' \
         % (baseIndex + 300, investments['fine_indexed_cost'][0]/investments['total'] * 100, \
@@ -268,16 +276,53 @@ def advice_all():
         baseIndex - 300, investments['fine_indexed_cost'][6]/investments['total'] * 100, \
         baseIndex - 400, investments['fine_indexed_cost'][7]/investments['total'] * 100)
     if not g_arg_simplified:
-        display_info(indexed_coststr, 1, 4)
+        display_info(indexed_coststr, 1, line)
+        line += 1
+    return line
 
+def get_stock_code(stock):
+    return stock['code']
+
+def advice_all():
+    global positioned_stock_count
+    global g_advice_all_count
+    global g_display_group_index
+    global all_stocks_realtime_quotes
+    theTime = datetime.now()
+
+    line = 1
+
+    # line 1
+    line = display_overview(line)
+    # line 2
+    line = display_indexed_cost_dist(line)
+    # line 3
+    line = display_cost(line)
+    # line 4
+    line = display_fine_indexed_cost_dist(line)
     # line 5
-    display_header(5)
+    line = display_header(line)
     
-    line = 6 if not g_arg_simplified else 2
     new_stocks = today_new_stocks()
     if len(new_stocks) > 0:
-        line += 1
         display_info('今新: ' + ' '.join(new_stocks), 1, 4)
+        line += 1
+
+    total = len(all_stocks)
+    all_codes = map(get_stock_code, all_stocks)
+    all_stocks_realtime_quotes = None
+    batch_all = total / 15 + (1 if total % 15 != 0 else 0)
+    for ind in range(batch_all):
+        start = ind * 15
+        end = ind * 15 + 15
+        end = end if end < total else total
+        log_status('(%d/%d) Getting realtime quotes' % (ind + 1, batch_all))
+        df = ts.get_realtime_quotes(all_codes[start : end])
+        log_status('(%d/%d) Done realtime quotes' % (ind + 1, batch_all))
+        if all_stocks_realtime_quotes is None:
+            all_stocks_realtime_quotes = df
+        else:
+            all_stocks_realtime_quotes = all_stocks_realtime_quotes.append(df, True)
 
     ind = 0
     for stock in all_stocks:
@@ -340,21 +385,30 @@ def advice_all():
     display_info(' ' + str(elapsed), 0, line + 1)
 
 def display_header(line):
-    display_info('                          昨幅   今幅    现价   前买   前卖 仓位 盈利 回撤     J  久期 档位     指盈    指跌  转    浮盈   备注', 1, line)
-    line += 1
+    if not g_arg_simplified:
+        display_info('                          昨幅   今幅    现价   前买   前卖 仓位 盈利 回撤     J  久期 档位     指盈    指跌  转    浮盈   备注', 1, line)
+        line += 1
     return line
 
 const_profitPercent = 0.06
 const_deficitPercent = 0.11
 
 def advise(stock, total, index):
-    log_status('(%d/%d) Getting realtime quotes for %s' % (index + 1, total, stock['code']))
-    df = ts.get_realtime_quotes(stock['code'])
-    log_status('(%d/%d) Done realtime quotes for %s' % (index + 1, total, stock['code']))
-    dh = previous_data(stock['code'])
+    #log_status('(%d/%d) Getting realtime quotes for %s' % (index + 1, total, stock['code']))
+    #df = ts.get_realtime_quotes(stock['code'])
+    #log_status('(%d/%d) Done realtime quotes for %s' % (index + 1, total, stock['code']))
+    df = all_stocks_realtime_quotes
+    code = stock['code']
+    current_price = float(df['price'][index])
+    today_high = float(df['high'][index])
+    today_low = float(df['low'][index])
+    today_open = float(df['open'][index])
+    position = stock['position']
+    last_sell = stock['last_sell']
+    last_buy = stock['last_buy']
     
     # name
-    stock['name'] = df['name'][0]
+    stock['name'] = df['name'][index]
     namelen = strutil.width(stock['name'])
     if namelen < 8:
         for i in range(8 - namelen):
@@ -362,22 +416,21 @@ def advise(stock, total, index):
     #print len(stock['name'])
     #print namelen
 
-    action = ''
-    action_color = 1
+    dh = previous_data(stock['code'])
     
-    code = stock['code']
-    current_price = float(df['price'][0])
-    today_high = float(df['high'][0])
-    today_open = float(df['open'][0])
-    position = stock['position']
-    last_sell = stock['last_sell']
-    last_buy = stock['last_buy']
     previous_close = float(dh['close'])
     previous_open = float(dh['open'])
+    action = ''
+    action_color = 1
+
+    recent_low = get_recent_low(code)
+    recent_rise_rate = (current_price - recent_low) / recent_low * 100 if recent_low != 0 else 0.0
 
     last_profit = stock['last_buy_position'] * (current_price - last_buy)
+    if position == 0 and recent_rise_rate >= 20.0 and recent_rise_rate <= 28.0:
+        pass
     # 设置了margin
-    if not g_show_all and stock.has_key('margin'):
+    elif not g_show_all and stock.has_key('margin'):
         if len(stock['margin']) > 1 and stock['margin'][0] < current_price and stock['margin'][1] > current_price \
             or len(stock["margin"]) == 1 and stock['margin'][0] < current_price and (position == 0 or current_price < stock["last_buy"] * (1 + const_profitPercent)):
             stock['action'] = "HIDE"
@@ -404,11 +457,14 @@ def advise(stock, total, index):
 
     j = 0
     if stock.has_key('KDJ'):
-        (k, d, j) = get_today_KDJ933(stock, current_price, float(df['high'][0]), float(df['low'][0]))
+        (k, d, j) = get_today_KDJ933(stock, current_price, today_high, today_low)
     if today_open == 0:
         action = "    "
-    elif float(df['price'][0]) - float(df['open'][0]) > 0:
-        if float(dh['close']) - float(dh['open']) < 0:
+    elif position == 0 and recent_rise_rate >= 20.0 and recent_rise_rate <= 28.0:
+        action = '买入'
+        action_color = 2
+    elif current_price - today_open > 0:
+        if previous_close - previous_open < 0:
             strong_buy = whether_strong_buy(current_price, last_sell, last_buy)
             strong_buy = False if (j > 80) else strong_buy
             if stock.has_key('last_buy_date'):
@@ -427,7 +483,7 @@ def advise(stock, total, index):
                 action_color = 4
             else:
                 action = "持有"
-    elif float(df['price'][0]) - float(df['open'][0]) < 0:
+    elif current_price - today_open < 0:
         if previous_close - previous_open < 0 or position == 0:
             action = "观望"
         elif current_price < last_buy:
@@ -478,10 +534,13 @@ def advise(stock, total, index):
     if profit_percent <= 0:
         regress_ratestr = '   '
     else:
-        recent_high = get_recent_high(stock, float(df['high'][0]))
+        recent_high = get_recent_high(stock, today_high)
         regress_rate = math.ceil((recent_high - current_price) / (recent_high - last_buy) * 100)
         #if code == '000531':
         #    print str(recent_high) + ' ' + str(current_price) + ' ' + str(last_buy)
+        regress_ratestr = '%2d%%' % regress_rate
+    if position == 0 and recent_rise_rate > 0:
+        regress_rate = recent_rise_rate
         regress_ratestr = '%2d%%' % regress_rate
     
     if (current_price == 0 or today_open == 0)and (code not in halt_codes):
@@ -531,9 +590,9 @@ def advise(stock, total, index):
     #    stock['last_sell'], position, profit_percentstr, regress_ratestr, j, \
     #    durationstr, stackstr, index_profit_percentstr)
     #stock['more_info'] = printstr
-    stock['more_info_previousChange'] = float(dh['close']) - float(dh['open'])
-    stock['more_info_todayChange'] = float(df['price'][0]) - float(df['open'][0])
-    stock['more_info_currentPrice'] = float(df['price'][0])
+    stock['more_info_previousChange'] = previous_close - previous_open
+    stock['more_info_todayChange'] = current_price - today_open
+    stock['more_info_currentPrice'] = current_price
     stock['more_info_lastBuy'] = stock['last_buy']
     stock['more_info_lastSell'] = stock['last_sell']
     stock['more_info_position'] = position
@@ -588,6 +647,22 @@ def get_recent_high(stock, today_high):
         recent_high = today_high
 
     return recent_high
+
+def get_recent_low(code):
+    #theBeginDate = datetime.strptime(datestr, '%Y-%m-%d').date()
+    theBeginDate = (date.today() - timedelta(days=90)).strftime('%Y-%m-%d')
+    theEndDate = date.today().strftime('%Y-%m-%d')
+    recent_low = 10000.0
+    log_status('Getting hist data for %s' % (code))
+    df = ts.get_hist_data(code, start=theBeginDate, end=theEndDate)
+    log_status('Done hist data for %s' % (code))
+    if df is not None:
+        for index in range(len(df['low'])):
+            if df['low'][index] < recent_low:
+                recent_low = df['low'][index]
+    else:
+        recent_low = 0.0
+    return recent_low
 
 def get_recent_high_from_date(code, datestr):
     theDate = datetime.strptime(datestr, '%Y-%m-%d').date()
@@ -1124,6 +1199,7 @@ def run_main():
     global g_highlight_line
     global g_display_group_index
     global all_stocks
+    global all_stocks_index
     parse_args()
     if DEBUG:
         #try:  
@@ -1144,8 +1220,7 @@ def run_main():
             while True:
                 if count == 0 or is_trade_time(datetime.now()):
                     if g_hide_all:
-                        for i in range(70):
-                            display_info(' ' * 200, 0, i)
+                        stdscr.clear()
                     else:
                         advice_all()
                         if count == 0:
@@ -1159,7 +1234,12 @@ def run_main():
                     time.sleep(1)
                     ichar = getch(stdscr)
                     if ichar == ord('^'):
-                        all_stocks = stockdata2.all_stocks_2
+                        if all_stocks_index == 1:
+                            all_stocks = stockdata2.all_stocks_2
+                        else:
+                            all_stocks = stockdata.all_stocks_1
+                        all_stocks_index = 2 if all_stocks_index == 1 else 1
+                        stdscr.clear()
                         preprocess_all()
                         advice_all()
                         seconds = 0
@@ -1173,6 +1253,7 @@ def run_main():
                         seconds = 0
                     if ichar == ord('a'):
                         g_show_all = not g_show_all
+                        stdscr.clear()
                         advice_all()
                         seconds = 0
                     if ichar == ord('h'):
