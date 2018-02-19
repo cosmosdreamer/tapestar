@@ -11,6 +11,7 @@ sys.path.insert(0, '../util/')
 
 import curses  
 from dateutil import rrule
+import dateutil2 # own
 from datetime import date, datetime, timedelta
 import dbman # own
 import hadvise # own
@@ -22,11 +23,11 @@ from lxml import etree
 import lxml.html.soupparser as soupparser
 import math
 import observer # own
-import pymongo
-#from pymongo import MongoClient
+import posman #own
 import stockdata # own
 import stockdata2 # own
 import strutil # own
+import tdal # own
 import time
 import tushare as ts
 
@@ -42,59 +43,22 @@ all_stocks = stockdata.all_stocks_1
 all_stocks_index = 1
 all_stocks_realtime_quotes = None
 
-#stock_codes = ['002450', '601766', '601288', '000488', '002008', '600522', '002164', '600008']
-#eyeon_stock_codes = ['002290', '600029', '002570', '000898']
-
 sh_index = {
     'code': 'sh',
     'KDJ': { '2016-10-31': [67.27, 77.84, 46.12]},
     'price': 0,
 }
 
-#precious_metals = [
-#    {
-#        'code': 1,
-#        'name': '白银',
-#        'trades': [
-#            ['2015-12-14', 1, 3000, 2.87],
-#        ],
-#    }
-#]
-
 whitelist_codes = ['601288', '000725', '603203'] # 农业银行, 京东方A, 快客股份
 halt_codes = [] # real-time retrieve
 vip_codes = ['002008', '002290', '002450'] # 大禾康
 
-positioned_stock_count = 0
-
-const_totalBase = 250000
-
-investments = {
-    'totalBase': const_totalBase,
-    'total': 0,
-    'totalExceptWhitelist': 0,
-    'totalExceptWhitelistAndHalt': 0,
-    'totalVip': 0,
-    'indexed_cost': [],
-    'fine_indexed_cost': [],
-    'indexedTotal': 0,
-}
-
 def preprocess_all():
-    global positioned_stock_count
-    investments['total'] = 0
-    investments['totalExceptWhitelist'] = 0
-    investments['totalExceptWhitelistAndHalt'] = 0
-    investments['totalVip'] = 0
-    investments['indexed_cost'] = [0, 0, 0, 0, 0, 0, 0, 0]
-    investments['fine_indexed_cost'] = [0, 0, 0, 0, 0, 0, 0, 0]
-    investments['indexedTotal'] = 0
-    positioned_stock_count = 0
+    posman.reset()
     for stock in all_stocks:
         preprocess_stock(stock)
 
 def preprocess_stock(stock):
-    global positioned_stock_count
     last_buy = 0.0
     last_buy_date = date.min
     far_buy_date = date.max
@@ -105,12 +69,12 @@ def preprocess_stock(stock):
     turnover = 0
     if stock.has_key('trades'):
         for trade in stock['trades']:
-            theDate = datetime.strptime(trade[0], '%Y-%m-%d').date()
+            theDate = dateutil2.parse_date(trade[0])
             direction = trade[1]
             amount = trade[2]
             price = trade[3]
             if direction == 2 or len(trade) > 4:
-                theSellDate = datetime.strptime(trade[4], '%Y-%m-%d').date()
+                theSellDate = dateutil2.parse_date(trade[4])
                 sellPrice = trade[5]
                 # correct direction in case it has wrong value
                 if direction != 2:
@@ -128,26 +92,26 @@ def preprocess_stock(stock):
                 far_buy_date = theDate
             if direction == 1:
                 position += direction * amount
-                investments['total'] += direction * amount * price
+                posman.investments['total'] += direction * amount * price
                 if stock['code'] not in whitelist_codes:
-                    investments['totalExceptWhitelist'] += direction * amount * price
+                    posman.investments['totalExceptWhitelist'] += direction * amount * price
                 if (stock['code'] not in whitelist_codes) and (stock['code'] not in halt_codes):
-                    investments['totalExceptWhitelistAndHalt'] += direction * amount * price
+                    posman.investments['totalExceptWhitelistAndHalt'] += direction * amount * price
                 if stock['code'] in vip_codes:
-                    investments['totalVip'] += direction * amount * price
+                    posman.investments['totalVip'] += direction * amount * price
                 # sh index at trade date
                 dh = previous_data_with_date(sh_index['code'], trade[0])
                 shIndex = (dh['high'] + dh['low']) / 2
-                investments['indexedTotal'] += shIndex * amount * price
+                posman.investments['indexedTotal'] += shIndex * amount * price
                 costIndex = int(math.floor((5000 - shIndex) / 500) + 1)
                 costIndex = 0 if (costIndex < 0) else costIndex
                 costIndex = 7 if (costIndex > 7) else costIndex
-                investments['indexed_cost'][costIndex] += amount * price
+                posman.investments['indexed_cost'][costIndex] += amount * price
                 if sh_index['price'] > 0:
                     costIndex = (int(sh_index['price']) / 100) - (int(shIndex) / 100) + 3
                     #display_info("" + costIndex + " " + amount * price, 1, 20)
                     if costIndex >= 0 and costIndex <= 7:
-                        investments['fine_indexed_cost'][costIndex] += amount * price
+                        posman.investments['fine_indexed_cost'][costIndex] += amount * price
     if not stock.has_key('last_buy_date') and last_buy_date != date.min:
         stock['last_buy_date'] = last_buy_date.strftime('%Y-%m-%d')
     if not stock.has_key('far_buy_date') and far_buy_date != date.max:
@@ -163,7 +127,7 @@ def preprocess_stock(stock):
     if not stock.has_key('position'):
         stock['position'] = position
     if stock['position'] > 0:
-        positioned_stock_count += 1
+        posman.investments['positioned_stock_count'] += 1
     stock['turnover'] = turnover
 
 def get_hold_duration(stock):
@@ -216,7 +180,7 @@ def display_overview(line):
     now = 'Time: %s  上证: %7.2f  涨跌: %6.2f%% J:%6.2f  关注: %2d 持仓: %2d 停牌: %2d' \
         % (time_str, \
         today_price, today_change_percent, j, \
-        len(all_stocks), positioned_stock_count, len(halt_codes))
+        len(all_stocks), posman.investments['positioned_stock_count'], len(halt_codes))
     if g_arg_simplified:
         now = 'T: %s  上证: %7.2f  涨跌: %6.2f%% J:%6.2f' \
         % (time_str, \
@@ -238,27 +202,27 @@ def display_overview(line):
 
 def display_indexed_cost_dist(line):
     indexed_coststr = '[>5000:%6.2f%%|>4500:%6.2f%%|>4000:%6.2f%%|>3500:%6.2f%%|>3000:%6.2f%%|>2500:%6.2f%%|>2000:%6.2f%%|>1500:%6.2f%%] - %7.2f' \
-        % (investments['indexed_cost'][0]/investments['total'] * 100, \
-        investments['indexed_cost'][1]/investments['total'] * 100, \
-        investments['indexed_cost'][2]/investments['total'] * 100, \
-        investments['indexed_cost'][3]/investments['total'] * 100, \
-        investments['indexed_cost'][4]/investments['total'] * 100, \
-        investments['indexed_cost'][5]/investments['total'] * 100, \
-        investments['indexed_cost'][6]/investments['total'] * 100, \
-        investments['indexed_cost'][7]/investments['total'] * 100, investments['indexedTotal'] / investments['total'])
+        % (posman.investments['indexed_cost'][0]/posman.investments['total'] * 100, \
+        posman.investments['indexed_cost'][1]/posman.investments['total'] * 100, \
+        posman.investments['indexed_cost'][2]/posman.investments['total'] * 100, \
+        posman.investments['indexed_cost'][3]/posman.investments['total'] * 100, \
+        posman.investments['indexed_cost'][4]/posman.investments['total'] * 100, \
+        posman.investments['indexed_cost'][5]/posman.investments['total'] * 100, \
+        posman.investments['indexed_cost'][6]/posman.investments['total'] * 100, \
+        posman.investments['indexed_cost'][7]/posman.investments['total'] * 100, posman.investments['indexedTotal'] / posman.investments['total'])
     if not g_arg_simplified:
         display_info(indexed_coststr, 1, line)
         line += 1
     return line
 
 def display_cost(line):
-    current_invest_base = (1 - (sh_index['price'] / 500 - 2) * 0.1) * investments['totalBase']
+    current_invest_base = (1 - (sh_index['price'] / 500 - 2) * 0.1) * posman.investments['totalBase']
     invest_status = '仓/允: %6.0f/%6.0f, 除农: %6.0f, 除农比: %6.2f%%, 除停: %6.0f, 除停比: %6.2f%%, 大禾康占比: %6.2f%%' \
-        % (investments['total'], current_invest_base, investments['totalExceptWhitelist'], \
-        (investments['totalExceptWhitelist'] - (current_invest_base - investments['totalBase'] * const_baseOffsetPercent)) / (investments['totalBase'] * const_baseOffsetPercent * 2) * 100, \
-        investments['totalExceptWhitelistAndHalt'], \
-        (investments['totalExceptWhitelistAndHalt'] - (current_invest_base - investments['totalBase'] * const_baseOffsetPercent)) / (investments['totalBase'] * const_baseOffsetPercent * 2) * 100, \
-        investments['totalVip'] / investments['total'] * 100)
+        % (posman.investments['total'], current_invest_base, posman.investments['totalExceptWhitelist'], \
+        (posman.investments['totalExceptWhitelist'] - (current_invest_base - posman.investments['totalBase'] * const_baseOffsetPercent)) / (posman.investments['totalBase'] * const_baseOffsetPercent * 2) * 100, \
+        posman.investments['totalExceptWhitelistAndHalt'], \
+        (posman.investments['totalExceptWhitelistAndHalt'] - (current_invest_base - posman.investments['totalBase'] * const_baseOffsetPercent)) / (posman.investments['totalBase'] * const_baseOffsetPercent * 2) * 100, \
+        posman.investments['totalVip'] / posman.investments['total'] * 100)
     if not g_arg_simplified:
         display_info(invest_status, 1, line)
         line += 1
@@ -267,14 +231,14 @@ def display_cost(line):
 def display_fine_indexed_cost_dist(line):
     baseIndex = int(sh_index['price']) / 100 * 100
     indexed_coststr = '[>%4d:%6.2f%%|>%4d:%6.2f%%|>%4d:%6.2f%%|>%4d:%6.2f%%|>%4d:%6.2f%%|>%4d:%6.2f%%|>%4d:%6.2f%%|>%4d:%6.2f%%]' \
-        % (baseIndex + 300, investments['fine_indexed_cost'][0]/investments['total'] * 100, \
-        baseIndex + 200, investments['fine_indexed_cost'][1]/investments['total'] * 100, \
-        baseIndex + 100, investments['fine_indexed_cost'][2]/investments['total'] * 100, \
-        baseIndex, investments['fine_indexed_cost'][3]/investments['total'] * 100, \
-        baseIndex - 100, investments['fine_indexed_cost'][4]/investments['total'] * 100, \
-        baseIndex - 200, investments['fine_indexed_cost'][5]/investments['total'] * 100, \
-        baseIndex - 300, investments['fine_indexed_cost'][6]/investments['total'] * 100, \
-        baseIndex - 400, investments['fine_indexed_cost'][7]/investments['total'] * 100)
+        % (baseIndex + 300, posman.investments['fine_indexed_cost'][0]/posman.investments['total'] * 100, \
+        baseIndex + 200, posman.investments['fine_indexed_cost'][1]/posman.investments['total'] * 100, \
+        baseIndex + 100, posman.investments['fine_indexed_cost'][2]/posman.investments['total'] * 100, \
+        baseIndex, posman.investments['fine_indexed_cost'][3]/posman.investments['total'] * 100, \
+        baseIndex - 100, posman.investments['fine_indexed_cost'][4]/posman.investments['total'] * 100, \
+        baseIndex - 200, posman.investments['fine_indexed_cost'][5]/posman.investments['total'] * 100, \
+        baseIndex - 300, posman.investments['fine_indexed_cost'][6]/posman.investments['total'] * 100, \
+        baseIndex - 400, posman.investments['fine_indexed_cost'][7]/posman.investments['total'] * 100)
     if not g_arg_simplified:
         display_info(indexed_coststr, 1, line)
         line += 1
@@ -391,7 +355,7 @@ def display_header(line):
     return line
 
 const_profitPercent = 0.06
-const_deficitPercent = 0.11
+const_deficitPercent = 0.18
 
 def advise(stock, total, index):
     #log_status('(%d/%d) Getting realtime quotes for %s' % (index + 1, total, stock['code']))

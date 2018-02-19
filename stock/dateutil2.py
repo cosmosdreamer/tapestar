@@ -17,7 +17,7 @@ def is_trade_date(date):
         raise Exception('year not supported!')
     return True
 
-def parse_date(datestr):
+def parse_date(dateStr):
     return datetime.strptime(dateStr, '%Y-%m-%d').date()
 
 def format_date(date):
