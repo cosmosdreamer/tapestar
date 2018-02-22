@@ -2,6 +2,26 @@
 
 from pymongo import MongoClient
 
+def query_history(code, datestr):
+    dh = c.aggregate([{"$match": {"code": {"$eq": code}}}, {"$match": {"date": {"$eq": datestr}}}])
+    return list(dh)
+
+def insert_history(code, datestr, open, close, high):
+    c.insert({"code": code, "date": datestr, "close": close, "open": open, "high": high})
+
+def update_history(code, datestr, high):
+    c.update({"code": code, "date": datestr}, {"$set": {"high": high}})
+
+def update_history_recent_low(code, datestr, recent_low):
+    c.update({"code": code, "date": datestr}, {"$set": {"recent_low": recent_low}})
+
+def query_dayK(code, datestr):
+    dh = c_dayK.aggregate([{"$match": {"code": {"$eq": code}}}, {"$match": {"date": {"$eq": datestr}}}])
+    return list(dh)
+
+def insert_dayK(code, real, datestr, open, close, high, low):
+    c_dayK.insert({"code": code, "real": real, "date": datestr, "close": close, "open": open, "high": high, "low": low})
+
 client = MongoClient()
 db = client.stock
 # history schema: {"code": code, "date": tdatestr, "close": df['close'][0], "open": df['open'][0], "high": df['high'][0]}

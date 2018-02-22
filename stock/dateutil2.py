@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+import legalholidays # own
 
 def is_today_trade_date():
     return is_trade_date(date.today())

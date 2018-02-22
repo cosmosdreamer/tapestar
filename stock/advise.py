@@ -10,13 +10,14 @@ sys.path.insert(0, './tapestar/util/')
 sys.path.insert(0, '../util/')
 
 import curses  
-from dateutil import rrule
+#from dateutil import rrule
 import dateutil2 # own
 from datetime import date, datetime, timedelta
 import dbman # own
 import hadvise # own
 import httplib
 import json
+import kdj # own
 import legalholidays # own
 import locale
 from lxml import etree
@@ -100,7 +101,7 @@ def preprocess_stock(stock):
                 if stock['code'] in vip_codes:
                     posman.investments['totalVip'] += direction * amount * price
                 # sh index at trade date
-                dh = previous_data_with_date(sh_index['code'], trade[0])
+                dh = tdal.previous_data_with_date(sh_index['code'], trade[0])
                 shIndex = (dh['high'] + dh['low']) / 2
                 posman.investments['indexedTotal'] += shIndex * amount * price
                 costIndex = int(math.floor((5000 - shIndex) / 500) + 1)
@@ -173,7 +174,7 @@ def display_overview(line):
     sh_index['low'] = today_low = float(df['low'][0])
     sh_index['pre_close'] = pre_close = float(df['pre_close'][0])
 
-    (k, d, j) = get_today_KDJ933(sh_index, today_price, today_high, today_low)
+    (k, d, j) = kdj.get_today_KDJ933(sh_index, today_price, today_high, today_low)
     today_change_percent = (today_price - pre_close) / pre_close * 100
     time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
@@ -380,14 +381,14 @@ def advise(stock, total, index):
     #print len(stock['name'])
     #print namelen
 
-    dh = previous_data(stock['code'])
+    dh = tdal.previous_data(stock['code'], log_status)
     
     previous_close = float(dh['close'])
     previous_open = float(dh['open'])
     action = ''
     action_color = 1
 
-    recent_low = get_recent_low(code)
+    recent_low = get_recent_low(stock)
     recent_rise_rate = (current_price - recent_low) / recent_low * 100 if recent_low != 0 else 0.0
 
     last_profit = stock['last_buy_position'] * (current_price - last_buy)
@@ -421,7 +422,7 @@ def advise(stock, total, index):
 
     j = 0
     if stock.has_key('KDJ'):
-        (k, d, j) = get_today_KDJ933(stock, current_price, today_high, today_low)
+        (k, d, j) = kdj.get_today_KDJ933(stock, current_price, today_high, today_low)
     if today_open == 0:
         action = "    "
     elif position == 0 and recent_rise_rate >= 20.0 and recent_rise_rate <= 28.0:
@@ -528,7 +529,7 @@ def advise(stock, total, index):
     index_profit_percent = 0
     buy_index = 0
     if position > 0:
-        index_dh = previous_data_with_date(sh_index['code'], stock['last_buy_date'])
+        index_dh = tdal.previous_data_with_date(sh_index['code'], stock['last_buy_date'])
         buy_index = (index_dh['high'] + index_dh['low']) / 2
         index_profit_percent = (sh_index['price'] - buy_index) / buy_index
     index_profit_percentstr = '       '
@@ -537,7 +538,7 @@ def advise(stock, total, index):
 
     index_cost_percent = 0
     if stock.has_key('last_sell_date'):
-        index_dh = previous_data_with_date(sh_index['code'], stock['last_sell_date'])
+        index_dh = tdal.previous_data_with_date(sh_index['code'], stock['last_sell_date'])
         sell_index = (index_dh['high'] + index_dh['low']) / 2
         # 处理累进买入的情况
         if buy_index != 0 and sell_index > buy_index and stock['last_sell_date'] != stock['last_buy_date']:
@@ -612,7 +613,19 @@ def get_recent_high(stock, today_high):
 
     return recent_high
 
-def get_recent_low(code):
+def get_recent_low(stock):
+    # mem cache
+    if stock.has_key('recent_low'):
+        return stock['recent_low']
+    # db
+    code = stock['code']
+    today_str = dateutil2.format_date(date.today())
+    dh = dbman.query_history(code, today_str)
+    if len(dh) > 0 and dh[0].has_key('recent_low'):
+        recent_low = stock['recent_low'] = dh[0]['recent_low']
+        return recent_low
+    # network
+    code = stock['code']
     #theBeginDate = datetime.strptime(datestr, '%Y-%m-%d').date()
     theBeginDate = (date.today() - timedelta(days=90)).strftime('%Y-%m-%d')
     theEndDate = date.today().strftime('%Y-%m-%d')
@@ -626,13 +639,17 @@ def get_recent_low(code):
                 recent_low = df['low'][index]
     else:
         recent_low = 0.0
+    # update db
+    if len(dh) > 0:
+        dbman.update_history_recent_low(code, today_str, recent_low)
+    stock['recent_low'] = recent_low
     return recent_low
 
 def get_recent_high_from_date(code, datestr):
     theDate = datetime.strptime(datestr, '%Y-%m-%d').date()
     recent_high = 0
     while theDate < date.today():
-        dh = previous_data_with_date(code, datestr)
+        dh = tdal.previous_data_with_date(code, datestr)
         if dh is not None and dh['high'] > recent_high:
             recent_high = dh['high']
         theDate = theDate + timedelta(days=1)
@@ -869,118 +886,6 @@ def display_empty_line(line):
     display_info(' ' * 192, 0, line)
     line += 1
     return line
-
-def get_today_KDJ933(stock, current_price, today_high, today_low):
-    if not stock.has_key('KDJ'):
-        raise Exception('no KDJ' + stock['code'])
-    real = is_trade_date(date.today())
-    return compute_KDJ933(stock, date.today(), current_price, today_high, today_low, real)
-
-def compute_KDJ933(stock, theDate, close, high, low, real):
-    baseKDJDateStr = stock['KDJ'].keys()[0]
-    if datetime.strptime(baseKDJDateStr, '%Y-%m-%d').date() == theDate:
-        #print 'hit'
-        return (stock['KDJ'][baseKDJDateStr][0], stock['KDJ'][baseKDJDateStr][1], stock['KDJ'][baseKDJDateStr][2])
-    (k_1, d_1, j_1) = get_previous_KDJ933(stock, theDate - timedelta(days=1))
-    if not real:
-        return (k_1, d_1, j_1)
-    #print 'compute' + stock['code'] + ' ' + theDate.strftime('%Y-%m-%d') + ' ' + str(k_1) + ' ' + str(d_1) + " " + str(j_1)
-    h9 = high
-    l9 = low
-    count = 1
-    while count < 9:
-        theDate = theDate - timedelta(days=1)
-        datestr = theDate.strftime('%Y-%m-%d')
-        dh = previous_data_with_date(stock['code'], datestr)
-        if dh['real']:
-            count += 1
-            if l9 > dh['low']:
-                l9 = dh['low']
-            if h9 < dh['high']:
-                h9 = dh['high']
-    rsv = (close - l9) / (h9 - l9) * 100
-    #print "rsv " + str(rsv) + " l9 " + " " + str(l9) + " h9 " + str(h9)
-    k = rsv / 3 + 2 * k_1 / 3
-    d = k / 3 + 2 * d_1 / 3
-    j = 3 * k - 2 * d
-    return (k, d, j)
-
-def get_previous_KDJ933(stock, theDate):
-    theOriginDate = theDate
-    datestr = theDate.strftime('%Y-%m-%d')
-    dh = previous_data_with_date(stock['code'], datestr)
-    if dh is None:
-        print "dh is None. Shouldn't happen."
-        return (0, 0, 0)
-    if dh.has_key('theK') and (not dbman.reset_KDJ):
-        return (dh['theK'], dh['theD'], dh['theJ'])
-    (k, d, j) = compute_KDJ933(stock, theOriginDate, dh['close'], dh['high'], dh['low'], dh['real'])
-    dbman.c_dayK.update({"code": stock['code'], "date": datestr}, {"$set": {"theK": k, "theD": d, "theJ": j}})
-    return (k, d, j)
-
-def previous_data(code):
-    d = date.today()
-    tdatestr = d.strftime('%Y-%m-%d')
-    dh = dbman.c.aggregate([{"$match": {"code": {"$eq": code}}}, {"$match": {"date": {"$eq": tdatestr}}}])
-    dh = list(dh)
-    
-    if len(dh) == 0 or (len(dh) != 0 and not dh[0].has_key('high')):
-        df = None
-        while df is None or df.empty:
-            d = d - timedelta(days=1)
-            datestr = d.strftime('%Y-%m-%d')
-            #print datestr
-            log_status('Getting hist data for %s at %s' % (code, datestr))
-            df = ts.get_hist_data(code, start=datestr, end=datestr)
-            log_status('Done hist data for %s at %s' % (code, datestr))
-            #print df
-            if df is None or df.empty:
-                pdh = dbman.c.aggregate([{"$match": {"code": {"$eq": code}}}, {"$match": {"date": {"$eq": datestr}}}])
-                pdh = list(pdh)
-                if len(pdh) != 0:
-                    if len(dh) == 0:
-                        dbman.c.insert({"code": code, "date": tdatestr, "close": pdh[0]['close'], "open": pdh[0]['open'], "high": pdh[0]['high']})
-                    else:
-                        dbman.c.update({"code": code, "date": tdatestr}, {"$set": {"high": pdh[0]['high']}})
-                    dh = dbman.c.aggregate([{"$match": {"code": {"$eq": code}}}, {"$match": {"date": {"$eq": tdatestr}}}])
-                    dh = list(dh)
-                    return dh[0]
-        if len(dh) == 0:
-            dbman.c.insert({"code": code, "date": tdatestr, "close": df['close'][0], "open": df['open'][0], "high": df['high'][0]})
-        else:
-            dbman.c.update({"code": code, "date": tdatestr}, {"$set": {"high": df['high'][0]}})
-        dh = dbman.c.aggregate([{"$match": {"code": {"$eq": code}}}, {"$match": {"date": {"$eq": tdatestr}}}])
-        dh = list(dh)
-        #print len(dh)
-
-    return dh[0]
-
-def previous_data_with_date(code, datestr, logstatus = True, recursive = True):
-    originDateStr = datestr
-    dh = dbman.c_dayK.aggregate([{"$match": {"code": {"$eq": code}}}, {"$match": {"date": {"$eq": datestr}}}])
-    dh = list(dh)
-    
-    if len(dh) == 0:
-        if logstatus:
-            log_status('Getting hist data for %s at %s' % (code, datestr))
-        df = ts.get_hist_data(code, start=datestr, end=datestr)
-        if logstatus:
-            log_status('Done hist data for %s at %s' % (code, datestr))
-        d = datetime.strptime(datestr, '%Y-%m-%d').date()
-        if df is None or df.empty:
-            if not recursive:
-                return None
-            d = d - timedelta(days=1)
-            datestr = d.strftime('%Y-%m-%d')
-            #df = ts.get_hist_data(code, start=datestr, end=datestr)
-            dh = previous_data_with_date(code, datestr)
-            dbman.c_dayK.insert({"code": code, "real": False, "date": originDateStr, "close": dh['close'], "open": dh['open'], "high": dh['high'], "low": dh['low']})
-        else:
-            dbman.c_dayK.insert({"code": code, "real": True, "date": originDateStr, "close": df['close'][0], "open": df['open'][0], "high": df['high'][0], "low": df['low'][0]})
-        dh = dbman.c_dayK.aggregate([{"$match": {"code": {"$eq": code}}}, {"$match": {"date": {"$eq": originDateStr}}}])
-        dh = list(dh)
-
-    return dh[0]
 
 def today_new_stocks():
     dh = dbman.db.new_stocks.find()
@@ -1261,6 +1166,16 @@ def run_main():
         finally:  
             unset_win()
             pass
+
+def profile_main():
+    global stdscr
+    stdscr = curses.initscr()
+    try:  
+        set_win()
+        preprocess_all()
+        advice_all()
+    finally:
+        unset_win()  
 
 if __name__=='__main__':
     from autoreload import run_with_reloader
