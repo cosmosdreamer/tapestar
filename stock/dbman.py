@@ -2,6 +2,13 @@
 
 from pymongo import MongoClient
 
+c_mem = {}
+c_dayK_mem = {}
+
+def init():
+    # read everything into mem.
+    pass
+
 def query_history(code, datestr):
     dh = c.aggregate([{"$match": {"code": {"$eq": code}}}, {"$match": {"date": {"$eq": datestr}}}])
     return list(dh)

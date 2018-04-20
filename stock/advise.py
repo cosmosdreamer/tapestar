@@ -14,6 +14,7 @@ import curses
 import dateutil2 # own
 from datetime import date, datetime, timedelta
 import dbman # own
+import funddata # own
 import hadvise # own
 import httplib
 import json
@@ -330,9 +331,19 @@ def advice_all():
         for item in observer.invest_items:
             item['comp_current'] = item['current']()
             item['comp_advice'] = item['advice'](item, item['comp_current'])
+        for item in funddata.all_sfunds:
+            item['comp_current'] = item['current'](item['code'])
+            item['comp_advice'] = item['advice'](item, item['comp_current'])
     for item in observer.invest_items:
         if item['comp_advice'] != '':
             advice_str = '    %s    %9.3f    %s' % (item['name'], item['comp_current'], item['comp_advice'])
+            display_info(advice_str, 1, line)
+            line += 1
+    for item in funddata.all_sfunds:
+        if item['comp_advice'] != '':
+            advice_str = '    %s    %9.3f    %s' % (item['name'], item['comp_current'], item['comp_advice'])
+            if item.has_key('comment'):
+                    advice_str += item['comment']
             display_info(advice_str, 1, line)
             line += 1
     g_advice_all_count += 1
@@ -347,7 +358,7 @@ def advice_all():
     line = display_empty_line(line)
 
     elapsed = datetime.now() - theTime
-    display_info(' ' + str(elapsed), 0, line + 1)
+    display_info(' ' + str(elapsed).split('.')[0], 0, line + 1)
 
 def display_header(line):
     if not g_arg_simplified:
@@ -356,7 +367,7 @@ def display_header(line):
     return line
 
 const_profitPercent = 0.06
-const_deficitPercent = 0.18
+const_deficitPercent = 0.1
 
 def advise(stock, total, index):
     #log_status('(%d/%d) Getting realtime quotes for %s' % (index + 1, total, stock['code']))
@@ -501,7 +512,7 @@ def advise(stock, total, index):
     else:
         recent_high = get_recent_high(stock, today_high)
         regress_rate = math.ceil((recent_high - current_price) / (recent_high - last_buy) * 100)
-        #if code == '000531':
+        #if code == '002299':
         #    print str(recent_high) + ' ' + str(current_price) + ' ' + str(last_buy)
         regress_ratestr = '%2d%%' % regress_rate
     if position == 0 and recent_rise_rate > 0:
@@ -764,8 +775,10 @@ def display_stock(stock, line):
     display_info('%s' % (stock['more_info_profit_percentstr']), location, line, colorpair if dark_enabled else currentProfit_color)
     location += profit_width + separator
     regress_rate_color = 1
-    if (not stock.has_key('last100') and stock['more_info_regress_rate'] >= 28) \
-        or stock.has_key('last100') and stock['last100'] and stock['more_info_stack'] == 1 and stock['more_info_regress_rate'] >= 58:
+    #if (not stock.has_key('last100') and stock['more_info_regress_rate'] >= 28) \
+    #    or stock.has_key('last100') and stock['last100'] and stock['more_info_stack'] == 1 and stock['more_info_regress_rate'] >= 58:
+    if (stock['more_info_stack'] != 1 and stock['more_info_regress_rate'] >= 28) \
+        or (stock['more_info_stack'] == 1 and stock['more_info_regress_rate'] >= 48):
         regress_rate_color = 3
     #display_info('回:%s' % (stock['more_info_regress_ratestr']), location, line, colorpair if dark_enabled else regress_rate_color)
     display_info('%s' % (stock['more_info_regress_ratestr']), location, line, colorpair if dark_enabled else regress_rate_color)

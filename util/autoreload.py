@@ -77,10 +77,18 @@ def run_with_reloader(runner):
         try:
             start_change_detector()
         except KeyboardInterrupt:
+            import curses
+            curses.nocbreak()  
+            curses.echo()  
+            curses.endwin()  
             pass
     else:
         try:
             sys.exit(restart_with_reloader())
         except KeyboardInterrupt:
+            import curses
+            curses.nocbreak()  
+            curses.echo()  
+            curses.endwin()  
             pass
 

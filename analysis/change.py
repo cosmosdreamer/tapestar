@@ -32,19 +32,20 @@ def calc():
         print 'Got data of code %s' % (code)
         change = { 'code': code, 'name': dg['name'][0], 'pChangeTotal': 0, 'closeChangeTotal': 0 }
         pre_close = 0
-        for i in range(0, len(df)):
-            pChange = (df['high'][i] - df['low'][i]) / df['close'][i]
-            change['pChangeTotal'] += pChange
-            if pChange > 0.2:
-                print pChange
-            if pre_close > 0:
-                closeChange = abs(df['close'][i] - pre_close) / pre_close
-                if closeChange <= 0.12:
-                    change['closeChangeTotal'] += closeChange
+        if df is not None:
+            for i in range(0, len(df)):
+                pChange = (df['high'][i] - df['low'][i]) / df['close'][i]
+                change['pChangeTotal'] += pChange
+                if pChange > 0.2:
+                    print pChange
+                if pre_close > 0:
+                    closeChange = abs(df['close'][i] - pre_close) / pre_close
+                    if closeChange <= 0.12:
+                        change['closeChangeTotal'] += closeChange
                 #if closeChange > 0.12:
                     #print '%7.2f %s %s\t%s' % (closeChange, change['code'], change['name'], df.iloc[i])
-            pre_close = df['close'][i]
-        changes.append(change)
+                pre_close = df['close'][i]
+            changes.append(change)
     changes.sort(compPChange)
     print '\n pChange:'
     for change in changes:
