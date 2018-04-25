@@ -55,6 +55,89 @@ whitelist_codes = ['601288', '000725', '603203'] # 农业银行, 京东方A, 快
 halt_codes = [] # real-time retrieve
 vip_codes = ['002008', '002290', '002450'] # 大禾康
 
+columns = [
+    { # No.
+        'header': '',
+        'width': 3,
+    },
+    { # Code
+        'header': '',
+        'width': 6,
+    },
+    { # Name
+        'header': '',
+        'width': 8,
+    },
+    { # Action
+        'header': '',
+        'width': 4,
+    },
+    { # Previous change
+        'header': '昨幅',
+        'width': 6,
+    },
+    { # Today change
+        'header': '今幅',
+        'width': 6,
+    },
+    { # Price
+        'header': '现价',
+        'width': 6,
+    },
+    { # Last buy
+        'header': '前买',
+        'width': 6,
+    },
+    { # Last sell
+        'header': '前卖',
+        'width': 6,
+    },
+    { # Position
+        'header': '仓位',
+        'width': 4,
+    },
+    { # Profit
+        'header': '盈利',
+        'width': 6,
+    },
+    { # Regression
+        'header': '回撤',
+        'width': 3,
+    },
+    { # J
+        'header': 'J',
+        'width': 6,
+    },
+    { # Duration
+        'header': '久期',
+        'width': 5,
+    },
+    { # Stack
+        'header': '档位',
+        'width': 5,
+    },
+    { # Index profit
+        'header': '指盈',
+        'width': 7,
+    },
+    { # Index cost
+        'header': '指跌',
+        'width': 7,
+    },
+    { # Turnover
+        'header': '转',
+        'width': 3,
+    },
+    { # Today profit
+        'header': '浮盈',
+        'width': 7,
+    },
+    { # Comment
+        'header': '备注',
+        'width': 20,
+    }
+]
+
 def preprocess_all():
     posman.reset()
     for stock in all_stocks:
@@ -362,7 +445,12 @@ def advice_all():
 
 def display_header(line):
     if not g_arg_simplified:
-        display_info('                          昨幅   今幅    现价   前买   前卖 仓位 盈利 回撤     J  久期 档位     指盈    指跌  转    浮盈   备注', 1, line)
+        #display_info('                          昨幅   今幅    现价   前买   前卖 仓位 盈利 回撤     J  久期 档位     指盈    指跌  转    浮盈   备注', 1, line)
+        col = 1
+        for i in range(len(columns)):
+            if columns[i]['header'] != '':
+                display_info(columns[i]['header'], col, line)
+            col += columns[i]['width'] + 1  
         line += 1
     return line
 
