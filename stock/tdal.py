@@ -5,6 +5,25 @@ from datetime import date, datetime, timedelta
 import dateutil2 # own
 import dbman # own
 import tushare as ts
+import util # own
+
+def get_realtime_quotes(stocks, log):
+    total = len(stocks)
+    codes = map(util.get_stock_code, stocks)
+    realtime_quotes = None
+    batches = total / 15 + (1 if total % 15 != 0 else 0)
+    for ind in range(batches):
+        start = ind * 15
+        end = ind * 15 + 15
+        end = end if end < total else total
+        log('(%d/%d) Getting realtime quotes' % (ind + 1, batches))
+        df = ts.get_realtime_quotes(codes[start : end])
+        log('(%d/%d) Done realtime quotes' % (ind + 1, batches))
+        if realtime_quotes is None:
+            realtime_quotes = df
+        else:
+            realtime_quotes = realtime_quotes.append(df, True)
+    return realtime_quotes
 
 ###
 # tushare supported code:
@@ -29,7 +48,7 @@ dayK_cache = {}
 # trade data abstraction layer
 
 # 上一交易日的数据
-def previous_data(code, logstatus = None):
+def previous_data(code, log):
     d = date.today()
     tdatestr = dateutil2.format_date(d)
     # mem cache
@@ -46,12 +65,10 @@ def previous_data(code, logstatus = None):
             d = dateutil2.previous_date(d)
             datestr = dateutil2.format_date(d)
             #print datestr
-            if logstatus is not None:
-                logstatus('Getting hist data for %s at %s' % (code, datestr))
+            log('Getting hist data for %s at %s' % (code, datestr))
             df = ts.get_hist_data(code, start=datestr, end=datestr)
             #print 'x'
-            if logstatus is not None:
-                logstatus('Done hist data for %s at %s' % (code, datestr))
+            log('Done hist data for %s at %s' % (code, datestr))
             #print df
             if df is None or df.empty:
                 pdh = dbman.query_history(code, datestr)
@@ -75,7 +92,7 @@ def previous_data(code, logstatus = None):
     history_cache[codedate] = dh[0]
     return dh[0]
 
-def previous_data_with_date(code, datestr, logstatus = True, recursive = True):
+def previous_data_with_date(code, datestr, log, recursive = True):
 
     # mem cache
     codedate = code + '__' + datestr
@@ -86,12 +103,10 @@ def previous_data_with_date(code, datestr, logstatus = True, recursive = True):
     dh = dbman.query_dayK(code, datestr)
     
     if len(dh) == 0:
-        #if logstatus:
-        #    log_status('Getting hist data for %s at %s' % (code, datestr))
+        log('Getting hist data for %s at %s' % (code, datestr))
         df = ts.get_hist_data(code, start=datestr, end=datestr)
         #print 'x'
-        #if logstatus:
-        #    log_status('Done hist data for %s at %s' % (code, datestr))
+        log('Done hist data for %s at %s' % (code, datestr))
         d = dateutil2.parse_date(datestr)
         if df is None or df.empty:
             if not recursive:
@@ -99,7 +114,7 @@ def previous_data_with_date(code, datestr, logstatus = True, recursive = True):
             d = dateutil2.previous_date(d)
             datestr = dateutil2.format_date(d)
             #df = ts.get_hist_data(code, start=datestr, end=datestr)
-            dh = previous_data_with_date(code, datestr)
+            dh = previous_data_with_date(code, datestr, log)
             dbman.insert_dayK(code, False, originDateStr, dh['open'], dh['close'], dh['high'], dh['low'])
         else:
             dbman.insert_dayK(code, True, originDateStr, df['open'][0], df['close'][0], df['high'][0], df['low'][0])
@@ -108,6 +123,10 @@ def previous_data_with_date(code, datestr, logstatus = True, recursive = True):
     dayK_cache[codedate] = dh[0]
     return dh[0]
 
+def log_none(str):
+    print str
+    #pass
+
 if __name__=='__main__':
-    print previous_data('601211')
-    print previous_data_with_date('601211', '2018-2-17', False)
+    print previous_data('601788', log_none)
+    #print previous_data_with_date('601211', '2018-2-17', log_none, False)

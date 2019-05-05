@@ -39,11 +39,26 @@ def get_silver_advice(item, current):
         advice = '买入'
     elif percent <= 0.4:
         advice = '反向卖出'
-    #elif percent >= 0.6:
-    #    advice = '卖出'
+    elif percent >= 0.6:
+        advice = '卖出'
     elif percent >= 0.8:
         advice = '卖出/反向买入'
-    if advice != '':
+    if advice != '' or g_arg_showAll:
+        advice += ' (%2.0f%%)' % (percent * 100)
+    return advice
+
+def get_copper_advice(item, current):
+    percent = (current - item['low']) / (item['high'] - item['low'])
+    advice = ''
+    if percent <= 0.2:
+        advice = '买入'
+    elif percent <= 0.4:
+        advice = '反向卖出'
+    elif percent >= 0.6:
+        advice = '卖出'
+    elif percent >= 0.8:
+        advice = '卖出/反向买入'
+    if advice != '' or g_arg_showAll:
         advice += ' (%2.0f%%)' % (percent * 100)
     return advice
 
@@ -60,6 +75,14 @@ invest_items = [
         'low': 2.836,
         'current': fixeddatautil.get_silver_current,
         'advice': get_silver_advice,
+    },
+    {
+        'code': 'copper',
+        'name': '黄    铜',
+        'high': 8765.0,
+        'low': 4318.0,
+        'current': fixeddatautil.get_copper_current,
+        'advice': get_copper_advice,
     },
     {
         'code': 'msft',

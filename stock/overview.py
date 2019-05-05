@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 
+import const # own
 from datetime import date, datetime, timedelta
 import kdj # own
 import options # own
 import posman # own
 import screen # own
+import stockdata # own
 import tushare as ts
 
 def display_overview(line, all_stocks, log):
@@ -18,7 +20,7 @@ def display_overview(line, all_stocks, log):
     stockdata.sh_index['low'] = today_low = float(df['low'][0])
     stockdata.sh_index['pre_close'] = pre_close = float(df['pre_close'][0])
 
-    (k, d, j) = kdj.get_today_KDJ933(stockdata.sh_index, today_price, today_high, today_low)
+    (k, d, j) = kdj.get_today_KDJ933(stockdata.sh_index, today_price, today_high, today_low, log)
     today_change_percent = (today_price - pre_close) / pre_close * 100
     time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
@@ -64,11 +66,11 @@ def display_cost(line):
     current_invest_base = (1 - (stockdata.sh_index['price'] / 500 - 2) * 0.1) * posman.investments['totalBase']
     invest_status = '仓/允: %6.0f/%6.0f, 除农: %6.0f, 除农比: %6.2f%%, 除停: %6.0f, 除停比: %6.2f%%, 大禾康占比: %6.2f%%' \
         % (posman.investments['total'], current_invest_base, posman.investments['totalExceptWhitelist'], \
-        (posman.investments['totalExceptWhitelist'] - (current_invest_base - posman.investments['totalBase'] * const_baseOffsetPercent)) / (posman.investments['totalBase'] * const_baseOffsetPercent * 2) * 100, \
+        (posman.investments['totalExceptWhitelist'] - (current_invest_base - posman.investments['totalBase'] * const.const_baseOffsetPercent)) / (posman.investments['totalBase'] * const.const_baseOffsetPercent * 2) * 100, \
         posman.investments['totalExceptWhitelistAndHalt'], \
-        (posman.investments['totalExceptWhitelistAndHalt'] - (current_invest_base - posman.investments['totalBase'] * const_baseOffsetPercent)) / (posman.investments['totalBase'] * const_baseOffsetPercent * 2) * 100, \
+        (posman.investments['totalExceptWhitelistAndHalt'] - (current_invest_base - posman.investments['totalBase'] * const.const_baseOffsetPercent)) / (posman.investments['totalBase'] * const.const_baseOffsetPercent * 2) * 100, \
         posman.investments['totalVip'] / posman.investments['total'] * 100)
-    if not g_arg_simplified:
+    if not options.g_arg_simplified:
         screen.display_info(invest_status, 1, line)
         line += 1
     return line
@@ -84,7 +86,15 @@ def display_fine_indexed_cost_dist(line):
         baseIndex - 200, posman.investments['fine_indexed_cost'][5]/posman.investments['total'] * 100, \
         baseIndex - 300, posman.investments['fine_indexed_cost'][6]/posman.investments['total'] * 100, \
         baseIndex - 400, posman.investments['fine_indexed_cost'][7]/posman.investments['total'] * 100)
-    if not g_arg_simplified:
+    if not options.g_arg_simplified:
         screen.display_info(indexed_coststr, 1, line)
         line += 1
     return line
+
+def display(line, all_stocks, log):
+    line = display_overview(line, all_stocks, log)
+    line = display_indexed_cost_dist(line)
+    line = display_cost(line)
+    line = display_fine_indexed_cost_dist(line)
+    return line
+

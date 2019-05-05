@@ -6,8 +6,8 @@ import tushare as ts
 
 def calc():
     indexes = []
-    year = 2016
-    while year >= 2000:
+    year = 2019
+    while year >= 2010:
         df = get_indexOfYear(year)
         print '\nGot data of year %d' % (year)
         for i in range(0, len(df)):

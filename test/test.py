@@ -28,5 +28,17 @@ def test_recent_high():
     print tdal.previous_data_with_date('000025', '2018-2-22')
     print tdal.previous_data_with_date('000025', '2018-2-23')
 
+def get_msft_current():
+    current = 0
+    conn = httplib.HTTPConnection("hq.sinajs.cn")
+    conn.request("GET", "/list=sh019547")
+    res = conn.getresponse()
+    if res.status == 200:
+        theData = res.read()
+        current_price = theData[25:30]
+        current = float(current_price)
+        conn.close()
+    return current
+
 if __name__ == '__main__':
     test_recent_high()

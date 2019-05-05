@@ -7,25 +7,26 @@ import math
 import posman # own
 import tdal # own
 
-def preprocess_all(stocks, sh_index):
+def preprocess_all(stocks, sh_index, log):
     posman.reset()
     for stock in stocks:
-        preprocess_stock(stock, sh_index)
+        preprocess_stock(stock, sh_index, log)
 
-def preprocess_stock(stock, sh_index):
+def preprocess_stock(stock, sh_index, log):
     last_buy = 0.0
     last_buy_date = date.min
     far_buy_date = date.max
     last_sell = 0.0
     last_sell_date = date.min
     position = 0
+    amount = 0
     last_buy_position = 0
     turnover = 0
     if stock.has_key(keys.trades):
         for trade in stock[keys.trades]:
             theDate = dateutil2.parse_date(trade[0])
             direction = trade[1]
-            amount = trade[2]
+            volume = trade[2]
             price = trade[3]
             if direction == 2 or len(trade) > 4:
                 theSellDate = dateutil2.parse_date(trade[4])
@@ -41,31 +42,32 @@ def preprocess_stock(stock, sh_index):
             if direction == 1 and theDate >= last_buy_date:
                 last_buy_date = theDate
                 last_buy = price
-                last_buy_position = amount
+                last_buy_position = volume
             if direction == 1 and theDate < far_buy_date:
                 far_buy_date = theDate
             if direction == 1:
-                position += direction * amount
-                posman.investments['total'] += direction * amount * price
+                position += direction * volume
+                amount += volume * price
+                posman.investments['total'] += direction * volume * price
                 if stock['code'] not in posman.whitelist_codes:
-                    posman.investments['totalExceptWhitelist'] += direction * amount * price
+                    posman.investments['totalExceptWhitelist'] += direction * volume * price
                 if (stock['code'] not in posman.whitelist_codes) and (stock['code'] not in posman.halt_codes):
-                    posman.investments['totalExceptWhitelistAndHalt'] += direction * amount * price
+                    posman.investments['totalExceptWhitelistAndHalt'] += direction * volume * price
                 if stock['code'] in posman.vip_codes:
-                    posman.investments['totalVip'] += direction * amount * price
+                    posman.investments['totalVip'] += direction * volume * price
                 # sh index at trade date
-                dh = tdal.previous_data_with_date(sh_index['code'], trade[0])
+                dh = tdal.previous_data_with_date(sh_index['code'], trade[0], log)
                 shIndex = (dh['high'] + dh['low']) / 2
-                posman.investments['indexedTotal'] += shIndex * amount * price
+                posman.investments['indexedTotal'] += shIndex * volume * price
                 costIndex = int(math.floor((5000 - shIndex) / 500) + 1)
                 costIndex = 0 if (costIndex < 0) else costIndex
                 costIndex = 7 if (costIndex > 7) else costIndex
-                posman.investments['indexed_cost'][costIndex] += amount * price
+                posman.investments['indexed_cost'][costIndex] += volume * price
                 if sh_index['price'] > 0:
                     costIndex = (int(sh_index['price']) / 100) - (int(shIndex) / 100) + 3
                     #display_info("" + costIndex + " " + amount * price, 1, 20)
                     if costIndex >= 0 and costIndex <= 7:
-                        posman.investments['fine_indexed_cost'][costIndex] += amount * price
+                        posman.investments['fine_indexed_cost'][costIndex] += volume * price
     if not stock.has_key('last_buy_date') and last_buy_date != date.min:
         stock['last_buy_date'] = last_buy_date.strftime('%Y-%m-%d')
     if not stock.has_key('far_buy_date') and far_buy_date != date.max:
@@ -83,7 +85,7 @@ def preprocess_stock(stock, sh_index):
     if stock['position'] > 0:
         posman.investments['positioned_stock_count'] += 1
     stock['turnover'] = turnover
-
+    stock['amount'] = amount
 
 
 

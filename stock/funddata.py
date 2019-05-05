@@ -2,8 +2,10 @@
 
 import tushare as ts
 
-def get_fund_current(code):
+def get_fund_current(code, log):
+    log('Getting realtime quotes for %s' % (code))
     df = ts.get_realtime_quotes(code)
+    log('Done realtime quotes for %s' % (code))
     return float(df['price'][0])
 
 def get_fund_advice(item, current):

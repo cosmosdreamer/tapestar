@@ -2,14 +2,22 @@
 
 from pymongo import MongoClient
 
-c_mem = {}
-c_dayK_mem = {}
+c_mem = []
+c_dayK_mem = []
 
 def init():
+    global c_mem
+    global c_dayK_mem
     # read everything into mem.
+    c_mem = list(c.aggregate([]))
+    c_dayK_mem = list(c_dayK.aggregate([]))
     pass
 
 def query_history(code, datestr):
+    result = [r for r in c_mem if r['code'] == code and r['date'] == datestr]
+    if len(result) > 0:
+        return result
+    #return []
     dh = c.aggregate([{"$match": {"code": {"$eq": code}}}, {"$match": {"date": {"$eq": datestr}}}])
     return list(dh)
 
@@ -23,6 +31,9 @@ def update_history_recent_low(code, datestr, recent_low):
     c.update({"code": code, "date": datestr}, {"$set": {"recent_low": recent_low}})
 
 def query_dayK(code, datestr):
+    result = [r for r in c_dayK_mem if r['code'] == code and r['date'] == datestr]
+    if len(result) > 0:
+        return result
     dh = c_dayK.aggregate([{"$match": {"code": {"$eq": code}}}, {"$match": {"date": {"$eq": datestr}}}])
     return list(dh)
 

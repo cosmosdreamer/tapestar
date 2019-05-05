@@ -5,6 +5,10 @@
 import sys
 import const # own
 
+whitelist_codes = ['601288', '000725', '603203'] # 农业银行, 京东方A, 快客股份
+halt_codes = [] # real-time retrieve
+vip_codes = ['002008', '002290', '002450'] # 大禾康
+
 investments = {
     'totalBase': const.const_totalBase,
     'total': 0,
