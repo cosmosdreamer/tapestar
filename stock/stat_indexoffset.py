@@ -29,6 +29,7 @@ def compOffset(stock1, stock2):
     return int(stock1['offset'] - stock2['offset'])
 
 def profit():
+    # 半年时间
     hist_date = date.today() - timedelta(days=180)
 
     df = ts.get_realtime_quotes('sh')

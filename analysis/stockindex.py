@@ -1,3 +1,4 @@
+import bisect
 from datetime import date, datetime, timedelta
 import tushare as ts
 
@@ -5,6 +6,9 @@ import tushare as ts
 # ts.get_h_data('002337', start='2015-01-01', end='2015-03-16')
 
 def calc():
+    df = ts.get_realtime_quotes('sh')
+    current_index = float(df['price'][0])
+
     indexes = []
     year = 2019
     while year >= 2010:
@@ -13,10 +17,10 @@ def calc():
         for i in range(0, len(df)):
             middle = (df['high'][i] - df['low'][i]) / 2 + df['low'][i]
             indexes.append(middle)
-        stat_indexes(indexes, year)
+        stat_indexes(indexes, year, current_index)
         year -= 1
 
-def stat_indexes(indexes, year):
+def stat_indexes(indexes, year, current_index):
     indexes.sort()
     # statistics
     print '\n\n Year: %d' % (year)
@@ -29,7 +33,9 @@ def stat_indexes(indexes, year):
     print '\n50%%: %7.2f' % (indexes[theIndex])
     theIndex = len(indexes) / 3
     print '\n33%%: %7.2f' % (indexes[theIndex])
-    print '\n\nEnjoy.\n'
+    theIndex = bisect.bisect(indexes, current_index)
+    print '\nCurrent: %2.0f%%' % (float(theIndex) * 100  / len(indexes))
+    print '\n\n'
 
 def get_indexOfYear(year):
     start = '%d-01-01' % (year)
