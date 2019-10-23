@@ -3,6 +3,8 @@ import sys
 
 import curses
 
+DEBUG_SCREEN = False # True
+
 KEY_UP = curses.KEY_UP
 KEY_DOWN = curses.KEY_DOWN
 KEY_LEFT = curses.KEY_LEFT
@@ -11,7 +13,11 @@ KEY_RIGHT = curses.KEY_RIGHT
 stdscr = None
 
 # no-test
-def display_info(str, x, y, colorpair=1):  
+def display_info(str, x, y, colorpair=1):
+    if DEBUG_SCREEN:
+        print str
+        return
+
     '''''使用指定的colorpair显示文字'''  
     try:  
         global stdscr
@@ -21,7 +27,10 @@ def display_info(str, x, y, colorpair=1):
         pass  
 
 # no-test
-def set_win():  
+def set_win():
+    if DEBUG_SCREEN:
+        return
+
     '''''控制台设置'''  
     global stdscr  
     stdscr = curses.initscr()
@@ -48,6 +57,9 @@ def clear_win():
 
 # no-test
 def unset_win():  
+    if DEBUG_SCREEN:
+        return
+
     '''''控制台重置'''  
     global stdscr  
     #恢复控制台默认设置（若不恢复，会导致即使程序结束退出了，控制台仍然是没有回显的）  
@@ -58,6 +70,9 @@ def unset_win():
 
 # no-test
 def getch():
+    if DEBUG_SCREEN:
+        return
+
     global stdscr
     ichar = stdscr.getch()
     if ichar == 27 and stdscr.getch() == ord('['):
