@@ -37,6 +37,14 @@ all_stocks = [
         'comment': '蒙牛乳业',
     },
     {
+        'code': 'hh01448', # 福寿园fsy
+        #'margin': [15.5],
+        'trades': [
+            ['2019-11-5', 1, 1000, 7.01],
+        ],
+        'comment': '银行',
+    },
+    {
         'code': 'hh03968', # 招商银行
         'margin': [15.5],
         'trades': [
