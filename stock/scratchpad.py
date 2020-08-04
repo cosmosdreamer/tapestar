@@ -1,4 +1,25 @@
 
+
+def today_new_stocks():
+    dh = dbman.db.new_stocks.find()
+    dh = list(dh)
+    new_stocks = []
+    for record in dh:
+        # see http://ryan-liu.iteye.com/blog/834831
+        if record['ipo_date'] is not None and (datetime.strptime(record['ipo_date'], "%Y-%m-%dT%H:%M:%S.%fz").date() == date.today()):
+            new_stocks.append(record['code'])
+    return new_stocks
+
+    # line 5
+    line = display_new_stocks(line)
+
+def display_new_stocks(line):
+    new_stocks = today_new_stocks()
+    if len(new_stocks) > 0:
+        screen.display_info('今新: ' + ' '.join(new_stocks), 1, line)
+        line += 1
+    return line
+
 #import pymongo
 #from pymongo import MongoClient
 

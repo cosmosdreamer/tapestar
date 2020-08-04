@@ -14,7 +14,7 @@ def is_trade_date(date):
     if datestr in legalholidays.legal_holidays:
         #print 'False'
         return False
-    if date.year < 2015 or date.year > 2019:
+    if date.year < 2015 or date.year > 2020:
         raise Exception('year not supported!')
     return True
 

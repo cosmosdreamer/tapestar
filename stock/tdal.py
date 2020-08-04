@@ -92,7 +92,7 @@ def previous_data(code, log):
     history_cache[codedate] = dh[0]
     return dh[0]
 
-def previous_data_with_date(code, datestr, log, recursive = True):
+def previous_data_with_date(code, datestr, log, recursive = False):
 
     # mem cache
     codedate = code + '__' + datestr
@@ -105,7 +105,7 @@ def previous_data_with_date(code, datestr, log, recursive = True):
     if len(dh) == 0:
         log('Getting hist data for %s at %s' % (code, datestr))
         df = ts.get_hist_data(code, start=datestr, end=datestr)
-        #print 'x'
+        print 'x'
         log('Done hist data for %s at %s' % (code, datestr))
         d = dateutil2.parse_date(datestr)
         if df is None or df.empty:
@@ -114,6 +114,7 @@ def previous_data_with_date(code, datestr, log, recursive = True):
             d = dateutil2.previous_date(d)
             datestr = dateutil2.format_date(d)
             #df = ts.get_hist_data(code, start=datestr, end=datestr)
+            log('Nest previous_data_with_date call %s %s' % (code, datestr))
             dh = previous_data_with_date(code, datestr, log)
             dbman.insert_dayK(code, False, originDateStr, dh['open'], dh['close'], dh['high'], dh['low'])
         else:

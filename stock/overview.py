@@ -20,7 +20,8 @@ def display_overview(line, all_stocks, log):
     stockdata.sh_index['low'] = today_low = float(df['low'][0])
     stockdata.sh_index['pre_close'] = pre_close = float(df['pre_close'][0])
 
-    (k, d, j) = kdj.get_today_KDJ933(stockdata.sh_index, today_price, today_high, today_low, log)
+#    (k, d, j) = kdj.get_today_KDJ933(stockdata.sh_index, today_price, today_high, today_low, log)
+    (k, d, j) = (0, 0, 0) # TODO: fix kdj
     today_change_percent = (today_price - pre_close) / pre_close * 100
     time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 

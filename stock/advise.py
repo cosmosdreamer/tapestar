@@ -53,13 +53,6 @@ stock_index = 0
 g_advice_all_count = 0
 g_display_group_index = 0
 
-def display_new_stocks(line):
-    new_stocks = today_new_stocks()
-    if len(new_stocks) > 0:
-        screen.display_info('今新: ' + ' '.join(new_stocks), 1, line)
-        line += 1
-    return line
-
 def advice_all():
     global positioned_stock_count
     global g_advice_all_count
@@ -72,8 +65,6 @@ def advice_all():
 
     # line 1-4?
     line = overview.display(line, all_stocks, log_status)
-    # line 5
-    line = display_new_stocks(line)
     # line 6
     line = display_header(line)
 
@@ -252,8 +243,9 @@ def advise(stock, total, index):
         return
 
     j = 0
-    if stock.has_key('KDJ'):
-        (k, d, j) = kdj.get_today_KDJ933(stock, current_price, today_high, today_low, log_status)
+    #if stock.has_key('KDJ'):
+    #    (k, d, j) = kdj.get_today_KDJ933(stock, current_price, today_high, today_low, log_status)
+    # TODO: fix kdj
     if today_open == 0:
         action = "    "
     elif position == 0 and recent_rise_rate >= 20.0 and recent_rise_rate <= 28.0:
@@ -376,16 +368,17 @@ def advise(stock, total, index):
         index_profit_percentstr = '%6.2f%%' % (index_profit_percent * 100)
 
     index_cost_percent = 0
-    if stock.has_key('last_sell_date'):
-        index_dh = tdal.previous_data_with_date(stockdata.sh_index['code'], stock['last_sell_date'], log_status)
-        sell_index = (index_dh['high'] + index_dh['low']) / 2
-        # 处理累进买入的情况
-        if buy_index != 0 and sell_index > buy_index and stock['last_sell_date'] != stock['last_buy_date']:
-            sell_index = buy_index
-        index_cost_percent = (stockdata.sh_index['price'] - sell_index) / sell_index
+    #TODO: index_cost
+    #if stock.has_key('last_sell_date'):
+    #    index_dh = tdal.previous_data_with_date(stockdata.sh_index['code'], stock['last_sell_date'], log_status)
+    #    sell_index = (index_dh['high'] + index_dh['low']) / 2
+    #    # 处理累进买入的情况
+    #    if buy_index != 0 and sell_index > buy_index and stock['last_sell_date'] != stock['last_buy_date']:
+    #        sell_index = buy_index
+    #    index_cost_percent = (stockdata.sh_index['price'] - sell_index) / sell_index
     index_cost_percentstr = '       '
-    if index_cost_percent < 0:
-        index_cost_percentstr = '%6.2f%%' % (index_cost_percent * 100)
+    #if index_cost_percent < 0:
+    #    index_cost_percentstr = '%6.2f%%' % (index_cost_percent * 100)
 
     stock['more_info_previousChange'] = previous_close - previous_open
     stock['more_info_todayChange'] = current_price - today_open
@@ -430,15 +423,17 @@ def whether_strong_sell(stock, current_price, last_sell, last_buy, today_high):
     return strong_sell
 
 def get_recent_high(stock, today_high):
+    # print '#### Getting recent high for ' + stock['code'] + ':' + stock['name']
     recent_high = 0
-    if stock.has_key('last_buy_date'):
+    #TODO: recent_high
+    if False:#stock.has_key('last_buy_date'):
         recent_high = get_recent_high_from_date(stock['code'], stock['last_buy_date'])
         if recent_high == 0:
             recent_high = today_high
     else:
         # go with high in last 14 days
         theDate = date.today() - timedelta(days=14)
-        recent_high = get_recent_high_from_date(stock['code'], theDate)
+        recent_high = get_recent_high_from_date(stock['code'], dateutil2.format_date(theDate))
     
     if recent_high < today_high:
         recent_high = today_high
@@ -481,6 +476,7 @@ def get_recent_high_from_date(code, datestr):
     theDate = datetime.strptime(datestr, '%Y-%m-%d').date()
     recent_high = 0
     while theDate < date.today():
+        log_status('Getting recent high for %s (%s)' % (code, datestr))
         dh = tdal.previous_data_with_date(code, datestr, log_status)
         if dh is not None and dh['high'] > recent_high:
             recent_high = dh['high']
@@ -523,16 +519,6 @@ def display_empty_line(line):
     line += 1
     return line
 
-def today_new_stocks():
-    dh = dbman.db.new_stocks.find()
-    dh = list(dh)
-    new_stocks = []
-    for record in dh:
-        # see http://ryan-liu.iteye.com/blog/834831
-        if record['ipo_date'] is not None and (datetime.strptime(record['ipo_date'], "%Y-%m-%dT%H:%M:%S.%fz").date() == date.today()):
-            new_stocks.append(record['code'])
-    return new_stocks
-
 g_simplified_status = ''
 
 # no-test
@@ -568,7 +554,9 @@ def run_main():
     global g_display_group_index
     global all_stocks
     global all_stocks_index
+    #print 'initing mem cache'
     #dbman.init()
+    #print 'end init'
     parse_args()
     if DEBUG:
         #try:  
@@ -582,8 +570,10 @@ def run_main():
     else:
         count = 0
         try:  
-            screen.set_win()  
+            screen.set_win()
+            print '#### start preprocess'
             pp.preprocess_all(all_stocks, stockdata.sh_index, log_status)
+            print '#### end preprocess'
             hadvise.preprocess_all()
             while True:
                 if count == 0 or dateutil2.is_trade_time(datetime.now()):

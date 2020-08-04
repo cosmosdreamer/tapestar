@@ -55,8 +55,13 @@ def preprocess_stock(stock, sh_index, log):
                     posman.investments['totalExceptWhitelistAndHalt'] += direction * volume * price
                 if stock['code'] in posman.vip_codes:
                     posman.investments['totalVip'] += direction * volume * price
+                #TODO: cost_index
+                '''
                 # sh index at trade date
+                # print '#### getting sh_index at date ' + trade[0]
                 dh = tdal.previous_data_with_date(sh_index['code'], trade[0], log)
+                # print '#### end sh_index at date ' + trade[0]
+                #dh = tdal.previous_data_with_date(sh_index['code'], trade[0], log)
                 shIndex = (dh['high'] + dh['low']) / 2
                 posman.investments['indexedTotal'] += shIndex * volume * price
                 costIndex = int(math.floor((5000 - shIndex) / 500) + 1)
@@ -68,6 +73,7 @@ def preprocess_stock(stock, sh_index, log):
                     #display_info("" + costIndex + " " + amount * price, 1, 20)
                     if costIndex >= 0 and costIndex <= 7:
                         posman.investments['fine_indexed_cost'][costIndex] += volume * price
+                '''
     if not stock.has_key('last_buy_date') and last_buy_date != date.min:
         stock['last_buy_date'] = last_buy_date.strftime('%Y-%m-%d')
     if not stock.has_key('far_buy_date') and far_buy_date != date.max:
