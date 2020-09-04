@@ -84,13 +84,13 @@ invest_items = [
         'current': fixeddatautil.get_copper_current,
         'advice': get_copper_advice,
     },
-    {
-        'code': 'msft',
-        'name': '微    软',
-        'high': 70, # 超过该价格建议卖出
-        'current': fixeddatautil.get_msft_current,
-        'advice': get_msft_advice,
-    },
+#    {
+#        'code': 'msft',
+#        'name': '微    软',
+#        'high': 70, # 超过该价格建议卖出
+#        'current': fixeddatautil.get_msft_current,
+#        'advice': get_msft_advice,
+#    },
 ]
 
 def advice_all():

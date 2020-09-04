@@ -94,6 +94,46 @@ all_etf = [
         'trades': [
         ],
     },
+    {
+        'code': '510050',
+        'name': '   50ETF',
+        'high': 4.67,
+        'low': 1.29,
+        'current': get_fund_current,
+        'advice': get_fund_advice,
+        'trades': [
+        ],
+    },
+    {
+        'code': '510300',
+        'name': '300ETF_5',
+        'high': 5.35,
+        'low': 2.04,
+        'current': get_fund_current,
+        'advice': get_fund_advice,
+        'trades': [
+        ],
+    },
+    {
+        'code': '510500',
+        'name': '  500ETF',
+        'high': 8.21,
+        'low': 4.22,
+        'current': get_fund_current,
+        'advice': get_fund_advice,
+        'trades': [
+        ],
+    },
+    {
+        'code': '510880',
+        'name': '红利ETF ',
+        'high': 5.29,
+        'low': 1.29,
+        'current': get_fund_current,
+        'advice': get_fund_advice,
+        'trades': [
+        ],
+    },
 ]
 
 # 159937 博时黄金
@@ -224,7 +264,7 @@ all_sfunds = [
         'advice': get_fund_advice,
         'trades': [
         ],
-        'comment': '150153'
+        'comment': '150290 150322'
     },
 ]
 
