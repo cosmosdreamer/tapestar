@@ -22,6 +22,8 @@ def get_hist(code, hist_date):
     #return high
     if df is None:
         return 0.0
+    elif len(df['close']) == 0:
+        return 0.0
     else:
         return float(df['close'][0])
 

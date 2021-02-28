@@ -3,7 +3,7 @@ import sys
 
 import curses
 
-DEBUG_SCREEN = False # True
+DEBUG_SCREEN = True
 
 KEY_UP = curses.KEY_UP
 KEY_DOWN = curses.KEY_DOWN
